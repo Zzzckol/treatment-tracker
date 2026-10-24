@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#0EA5A0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="治疗跟进">
+<meta name="format-detection" content="telephone=no">
+<title>治疗跟进</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icons/icon-180.png">
+<link rel="icon" href="./icons/icon-192.png">
+<link rel="stylesheet" href="./css/app.css">
+</head>
+<body>
+
+<header class="appbar">
+  <div class="row1">
+    <div>
+      <div class="who" id="hd-who">治疗跟进</div>
+      <div class="sub" id="hd-sub">今天</div>
+    </div>
+    <div class="date" id="hd-date"></div>
+  </div>
+</header>
+
+<main id="view"></main>
+
+<nav class="tabbar" id="tabbar">
+  <button data-page="today" aria-current="page"><span class="ico">☀</span>今天</button>
+  <button data-page="plan"><span class="ico">▤</span>日程</button>
+  <button data-page="labs"><span class="ico">◔</span>指标</button>
+  <button data-page="syms"><span class="ico">✎</span>记录</button>
+  <button data-page="more"><span class="ico">⋯</span>更多</button>
+</nav>
+
+<button class="fab" id="fab" aria-label="新建">+</button>
+
+<div class="sheet-mask" id="mask">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2 id="sheet-title">标题</h2>
+      <button class="x" id="sheet-x" aria-label="关闭">×</button>
+    </div>
+    <div class="sheet-body" id="sheet-body"></div>
+    <div class="sheet-foot" id="sheet-foot"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script type="module" src="./js/app.js"></script>
+</body>
+</html>
