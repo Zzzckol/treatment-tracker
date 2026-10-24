@@ -111,8 +111,9 @@ export const CHART = {
  * @param {object} opt {lo, hi, unit, w, h, color}
  */
 export function sparkline(points, opt = {}) {
-  const W = opt.w || 320, H = opt.h || 120;
-  const PL = 38, PR = 10, PT = 12, PB = 20;
+  const W = opt.w || 340, H = opt.h || 132;
+  // 手机屏幕上坐标轴文字不能小于 10px，留足够边距
+  const PL = 42, PR = 12, PT = 14, PB = 24;
   const iw = W - PL - PR, ih = H - PT - PB;
 
   if (!points.length) {
@@ -144,13 +145,13 @@ export function sparkline(points, opt = {}) {
     band = `<rect x="${PL}" y="${y1}" width="${iw}" height="${Math.max(1, y2 - y1)}" fill="${CHART.band}" opacity=".13"/>`;
   }
 
-  // 水平网格
+  // 水平网格：字号提到 10.5，手机上才看得清
   let grid = '';
   for (let i = 0; i <= 2; i++) {
     const v = lo + ((hi - lo) * i) / 2;
     const y = Y(v);
     grid += `<line x1="${PL}" y1="${y}" x2="${W - PR}" y2="${y}" stroke="${CHART.line}" stroke-width="1"/>
-      <text x="${PL - 5}" y="${y + 3.5}" text-anchor="end" font-size="9" fill="${CHART.ink3}">${fmtNum(v)}</text>`;
+      <text x="${PL - 6}" y="${y + 4}" text-anchor="end" font-size="11.5" fill="${CHART.ink3}">${fmtNum(v)}</text>`;
   }
 
   const path = points.map((p, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)},${Y(p.y).toFixed(1)}`).join(' ');
@@ -164,8 +165,8 @@ export function sparkline(points, opt = {}) {
   }).join('');
 
   const first = points[0].x, last = points[points.length - 1].x;
-  const xlabel = `<text x="${PL}" y="${H - 5}" font-size="9" fill="${CHART.ink3}">${shortDate(first)}</text>` +
-    (points.length > 1 ? `<text x="${W - PR}" y="${H - 5}" text-anchor="end" font-size="9" fill="${CHART.ink3}">${shortDate(last)}</text>` : '');
+  const xlabel = `<text x="${PL}" y="${H - 6}" font-size="11.5" fill="${CHART.ink3}">${shortDate(first)}</text>` +
+    (points.length > 1 ? `<text x="${W - PR}" y="${H - 6}" text-anchor="end" font-size="11.5" fill="${CHART.ink3}">${shortDate(last)}</text>` : '');
 
   return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img" aria-label="趋势图">
     ${grid}${band}
