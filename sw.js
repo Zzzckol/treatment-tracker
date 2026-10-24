@@ -3,7 +3,7 @@
  * 策略：外壳走「网络优先，失败回缓存」，避免更新后一直看到旧版
  */
 
-const CACHE = 'tx-tracker-v1';
+const CACHE = 'tx-tracker-v2';
 
 const SHELL = [
   './',
@@ -15,6 +15,7 @@ const SHELL = [
   './js/db.js',
   './js/utils.js',
   './js/plan.js',
+  './js/import.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-180.png',
