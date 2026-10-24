@@ -1,1 +1,94 @@
-IyBGaXggZ2l0aHViLmNvbSBhY2Nlc3MgYnkgZWRpdGluZyBob3N0cyAocmV2ZXJzaWJsZSkKIyBSdW46IHJpZ2h0LWNsaWNrIC0+IFJ1biB3aXRoIFBvd2VyU2hlbGwsIG9yIGV4ZWN1dGUgaW4gYW4gQURNSU4gUG93ZXJTaGVsbC4KCiRFcnJvckFjdGlvblByZWZlcmVuY2UgPSAnU3RvcCcKCiRpc0FkbWluID0gKFtTZWN1cml0eS5QcmluY2lwYWwuV2luZG93c1ByaW5jaXBhbF1bU2VjdXJpdHkuUHJpbmNpcGFsLldpbmRvd3NJZGVudGl0eV06OkdldEN1cnJlbnQoKSkuSXNJblJvbGUoW1NlY3VyaXR5LlByaW5jaXBhbC5XaW5kb3dzQnVpbHRJblJvbGVdOjpBZG1pbmlzdHJhdG9yKQppZiAoLW5vdCAkaXNBZG1pbikgewogICAgV3JpdGUtSG9zdCAiTmVlZCBhZG1pbmlzdHJhdG9yIHJpZ2h0cy4gUmlnaHQtY2xpY2sgdGhpcyBmaWxlIC0+IFJ1biBhcyBhZG1pbmlzdHJhdG9yLiIgLUZvcmVncm91bmRDb2xvciBSZWQKICAgIFJlYWQtSG9zdCAiUHJlc3MgRW50ZXIgdG8gZXhpdCIKICAgIGV4aXQgMQp9CgokaG9zdHNQYXRoID0gIiRlbnY6V0lORElSXFN5c3RlbTMyXGRyaXZlcnNcZXRjXGhvc3RzIgokYmFja3VwRGlyID0gIkQ6XEFJXHRyZWF0bWVudC10cmFja2VyIgokc3RhbXAgPSBHZXQtRGF0ZSAtRm9ybWF0ICd5eXl5TU1kZC1ISG1tc3MnCiRiYWNrdXBQYXRoID0gSm9pbi1QYXRoICRiYWNrdXBEaXIgImhvc3RzLmJhY2t1cC0kc3RhbXAudHh0IgoKIyBHaXRIdWIgZWRnZSBJUHMgdmVyaWZpZWQgcmVhY2hhYmxlIGZyb20gdGhpcyBtYWNoaW5lCiRpcHMgPSBAKAogICAgJzIwLjI3LjE3Ny4xMTMnLAogICAgJzE0MC44Mi4xMTMuNCcsCiAgICAnMTQwLjgyLjExNC40JwopCgokbWFya2VyID0gJyMgPT09IHRyZWF0bWVudC10cmFja2VyOiBHaXRIdWIgZml4IChCRUdJTikgPT09JwokbWFya2VyRW5kID0gJyMgPT09IHRyZWF0bWVudC10cmFja2VyOiBHaXRIdWIgZml4IChFTkQpID09PScKCldyaXRlLUhvc3QgIiIKV3JpdGUtSG9zdCAiWzEvNF0gQmFja2luZyB1cCBob3N0cyAuLi4iIC1Gb3JlZ3JvdW5kQ29sb3IgQ3lhbgpDb3B5LUl0ZW0gJGhvc3RzUGF0aCAkYmFja3VwUGF0aCAtRm9yY2UKV3JpdGUtSG9zdCAiICBTYXZlZCB0bzogJGJhY2t1cFBhdGgiIC1Gb3JlZ3JvdW5kQ29sb3IgR3JlZW4KCldyaXRlLUhvc3QgIiIKV3JpdGUtSG9zdCAiWzIvNF0gUmVtb3Zpbmcgb2xkIGZpeCBlbnRyaWVzIC4uLiIgLUZvcmVncm91bmRDb2xvciBDeWFuCiRsaW5lcyA9IEdldC1Db250ZW50ICRob3N0c1BhdGggLUVycm9yQWN0aW9uIFNpbGVudGx5Q29udGludWUKJG91dCA9IE5ldy1PYmplY3QgU3lzdGVtLkNvbGxlY3Rpb25zLkFycmF5TGlzdAokc2tpcCA9ICRmYWxzZQpmb3JlYWNoICgkbCBpbiAkbGluZXMpIHsKICAgIGlmICgkbCAtZXEgJG1hcmtlcikgeyAkc2tpcCA9ICR0cnVlOyBjb250aW51ZSB9CiAgICBpZiAoJGwgLWVxICRtYXJrZXJFbmQpIHsgJHNraXAgPSAkZmFsc2U7IGNvbnRpbnVlIH0KICAgIGlmICgtbm90ICRza2lwKSB7IFt2b2lkXSRvdXQuQWRkKCRsKSB9Cn0KV3JpdGUtSG9zdCAiICBEb25lIiAtRm9yZWdyb3VuZENvbG9yIEdyZWVuCgpXcml0ZS1Ib3N0ICIiCldyaXRlLUhvc3QgIlszLzRdIFdyaXRpbmcgbmV3IGVudHJpZXMgLi4uIiAtRm9yZWdyb3VuZENvbG9yIEN5YW4KW3ZvaWRdJG91dC5BZGQoJycpClt2b2lkXSRvdXQuQWRkKCRtYXJrZXIpCmZvcmVhY2ggKCRpcCBpbiAkaXBzKSB7CiAgICBbdm9pZF0kb3V0LkFkZCgiJGlwIGdpdGh1Yi5jb20iKQp9Clt2b2lkXSRvdXQuQWRkKCIkKCRpcHNbMF0pIHd3dy5naXRodWIuY29tIikKW3ZvaWRdJG91dC5BZGQoJG1hcmtlckVuZCkKCiRjb250ZW50ID0gKCRvdXQgLWpvaW4gImByYG4iKQpbU3lzdGVtLklPLkZpbGVdOjpXcml0ZUFsbFRleHQoJGhvc3RzUGF0aCwgJGNvbnRlbnQsIChOZXctT2JqZWN0IFN5c3RlbS5UZXh0LlVURjhFbmNvZGluZygkZmFsc2UpKSkKV3JpdGUtSG9zdCAiICBXcm90ZSAkKCRpcHMuQ291bnQpIElQIGVudHJpZXMiIC1Gb3JlZ3JvdW5kQ29sb3IgR3JlZW4KCldyaXRlLUhvc3QgIiIKV3JpdGUtSG9zdCAiWzQvNF0gRmx1c2hpbmcgRE5TIC4uLiIgLUZvcmVncm91bmRDb2xvciBDeWFuCmlwY29uZmlnIC9mbHVzaGRucyB8IE91dC1OdWxsCldyaXRlLUhvc3QgIiAgRG9uZSIgLUZvcmVncm91bmRDb2xvciBHcmVlbgoKV3JpdGUtSG9zdCAiIgpXcml0ZS1Ib3N0ICJUZXN0aW5nIGNvbm5lY3Rpb24gLi4uIiAtRm9yZWdyb3VuZENvbG9yIEN5YW4KU3RhcnQtU2xlZXAgLVNlY29uZHMgMQokb2sgPSAkZmFsc2UKdHJ5IHsKICAgICRzdyA9IFtTeXN0ZW0uRGlhZ25vc3RpY3MuU3RvcHdhdGNoXTo6U3RhcnROZXcoKQogICAgJGMgPSBOZXctT2JqZWN0IFN5c3RlbS5OZXQuU29ja2V0cy5UY3BDbGllbnQKICAgICR0ID0gJGMuQ29ubmVjdEFzeW5jKCdnaXRodWIuY29tJywgNDQzKQogICAgaWYgKCR0LldhaXQoNTAwMCkpIHsKICAgICAgICAkZWxhcHNlZCA9ICRzdy5FbGFwc2VkTWlsbGlzZWNvbmRzCiAgICAgICAgV3JpdGUtSG9zdCAiICBnaXRodWIuY29tOjQ0MyBjb25uZWN0ZWQgaW4gJHtlbGFwc2VkfSBtcyIgLUZvcmVncm91bmRDb2xvciBHcmVlbgogICAgICAgICRvayA9ICR0cnVlCiAgICB9IGVsc2UgewogICAgICAgIFdyaXRlLUhvc3QgIiAgU3RpbGwgdGltaW5nIG91dCIgLUZvcmVncm91bmRDb2xvciBSZWQKICAgIH0KICAgICRjLkNsb3NlKCkKfSBjYXRjaCB7CiAgICBXcml0ZS1Ib3N0ICIgIFRlc3QgZmFpbGVkOiAkKCRfLkV4Y2VwdGlvbi5NZXNzYWdlKSIgLUZvcmVncm91bmRDb2xvciBSZWQKfQoKV3JpdGUtSG9zdCAiIgppZiAoJG9rKSB7CiAgICBXcml0ZS1Ib3N0ICJTVUNDRVNTIC0gcmVmcmVzaCB5b3VyIGJyb3dzZXIgYW5kIHRyeSBnaXRodWIuY29tIGFnYWluLiIgLUZvcmVncm91bmRDb2xvciBHcmVlbgp9IGVsc2UgewogICAgV3JpdGUtSG9zdCAiU3RpbGwgbm90IGNvbm5lY3RlZC4gWW91IGNhbiBlZGl0IGhvc3RzIGFuZCB0cnkgYW5vdGhlciBJUC4iIC1Gb3JlZ3JvdW5kQ29sb3IgWWVsbG93CiAgICBXcml0ZS1Ib3N0ICJCYWNrdXA6ICRiYWNrdXBQYXRoIiAtRm9yZWdyb3VuZENvbG9yIFllbGxvdwp9CgpXcml0ZS1Ib3N0ICIiCldyaXRlLUhvc3QgIlRvIHVuZG8sIHJ1bjogcmVzdG9yZS1ob3N0cy5wczEiIC1Gb3JlZ3JvdW5kQ29sb3IgR3JheQpSZWFkLUhvc3QgIlByZXNzIEVudGVyIHRvIGNsb3NlIgo=
+# Fix github.com access by editing hosts (reversible)
+# Run: right-click -> Run with PowerShell, or execute in an ADMIN PowerShell.
+
+$ErrorActionPreference = 'Stop'
+
+$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not $isAdmin) {
+    Write-Host "Need administrator rights. Right-click this file -> Run as administrator." -ForegroundColor Red
+    Read-Host "Press Enter to exit"
+    exit 1
+}
+
+$hostsPath = "$env:WINDIR\System32\drivers\etc\hosts"
+$backupDir = "D:\AI\treatment-tracker"
+$stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+$backupPath = Join-Path $backupDir "hosts.backup-$stamp.txt"
+
+# GitHub edge IPs verified reachable from this machine
+$ips = @(
+    '20.27.177.113',
+    '140.82.113.4',
+    '140.82.114.4'
+)
+
+$marker = '# === treatment-tracker: GitHub fix (BEGIN) ==='
+$markerEnd = '# === treatment-tracker: GitHub fix (END) ==='
+
+Write-Host ""
+Write-Host "[1/4] Backing up hosts ..." -ForegroundColor Cyan
+Copy-Item $hostsPath $backupPath -Force
+Write-Host "  Saved to: $backupPath" -ForegroundColor Green
+
+Write-Host ""
+Write-Host "[2/4] Removing old fix entries ..." -ForegroundColor Cyan
+$lines = Get-Content $hostsPath -ErrorAction SilentlyContinue
+$out = New-Object System.Collections.ArrayList
+$skip = $false
+foreach ($l in $lines) {
+    if ($l -eq $marker) { $skip = $true; continue }
+    if ($l -eq $markerEnd) { $skip = $false; continue }
+    if (-not $skip) { [void]$out.Add($l) }
+}
+Write-Host "  Done" -ForegroundColor Green
+
+Write-Host ""
+Write-Host "[3/4] Writing new entries ..." -ForegroundColor Cyan
+[void]$out.Add('')
+[void]$out.Add($marker)
+foreach ($ip in $ips) {
+    [void]$out.Add("$ip github.com")
+}
+[void]$out.Add("$($ips[0]) www.github.com")
+[void]$out.Add($markerEnd)
+
+$content = ($out -join "`r`n")
+[System.IO.File]::WriteAllText($hostsPath, $content, (New-Object System.Text.UTF8Encoding($false)))
+Write-Host "  Wrote $($ips.Count) IP entries" -ForegroundColor Green
+
+Write-Host ""
+Write-Host "[4/4] Flushing DNS ..." -ForegroundColor Cyan
+ipconfig /flushdns | Out-Null
+Write-Host "  Done" -ForegroundColor Green
+
+Write-Host ""
+Write-Host "Testing connection ..." -ForegroundColor Cyan
+Start-Sleep -Seconds 1
+$ok = $false
+try {
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    $c = New-Object System.Net.Sockets.TcpClient
+    $t = $c.ConnectAsync('github.com', 443)
+    if ($t.Wait(5000)) {
+        $elapsed = $sw.ElapsedMilliseconds
+        Write-Host "  github.com:443 connected in ${elapsed} ms" -ForegroundColor Green
+        $ok = $true
+    } else {
+        Write-Host "  Still timing out" -ForegroundColor Red
+    }
+    $c.Close()
+} catch {
+    Write-Host "  Test failed: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+Write-Host ""
+if ($ok) {
+    Write-Host "SUCCESS - refresh your browser and try github.com again." -ForegroundColor Green
+} else {
+    Write-Host "Still not connected. You can edit hosts and try another IP." -ForegroundColor Yellow
+    Write-Host "Backup: $backupPath" -ForegroundColor Yellow
+}
+
+Write-Host ""
+Write-Host "To undo, run: restore-hosts.ps1" -ForegroundColor Gray
+Read-Host "Press Enter to close"
