@@ -1,0 +1,34 @@
+name: 每日治疗提醒
+
+on:
+  schedule:
+    # UTC 时间。北京时间 08:00 = UTC 00:00
+    - cron: '0 0 * * *'
+    # 北京时间 20:00 = UTC 12:00，晚上再兜一次（第二天有安排时）
+    - cron: '0 12 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: '强制发一条测试消息'
+        required: false
+        default: ''
+
+# 只读权限即可，脚本不写仓库
+permissions:
+  contents: read
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 检查是否需要推送
+        env:
+          SERVERCHAN_KEY: ${{ secrets.SERVERCHAN_KEY }}
+          FORCE: ${{ github.event.inputs.force }}
+        run: node scripts/push.mjs
