@@ -1,0 +1,17 @@
+{
+  "name": "治疗跟进",
+  "short_name": "治疗跟进",
+  "description": "放疗、化疗、免疫治疗的日程与指标记录",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f9fa",
+  "theme_color": "#0EA5A0",
+  "lang": "zh-CN",
+  "icons": [
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-180.png", "sizes": "180x180", "type": "image/png", "purpose": "any" }
+  ]
+}
