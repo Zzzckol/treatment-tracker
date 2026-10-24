@@ -16,6 +16,7 @@ import {
   buildCyclePlan, buildRadioPlan, mergePlan, nextAppointment, nextTest,
   typeMeta, toICS, buildReminderPayload,
 } from './plan.js';
+import { buildExtractPrompt, validateBundle, applyBundle } from './import.js';
 
 /* ==========================================================
    状态
@@ -41,6 +42,7 @@ async function boot() {
   initSheet();
   bindTabs();
   bindFab();
+  initFabAutoHide();
 
   S.profile = await db.getProfile();
   await reload();
@@ -77,6 +79,11 @@ function registerSW() {
   }
 }
 
+/** 悬浮按钮已弃用，此函数保留为空操作以兼容旧调用 */
+function initFabAutoHide() {
+  // 悬浮按钮会遮挡窄屏正文，已改为页面内顶部操作按钮。
+}
+
 /* ==========================================================
    导航
    ========================================================== */
@@ -93,10 +100,34 @@ function bindTabs() {
 }
 
 function bindFab() {
-  document.getElementById('fab').addEventListener('click', () => {
-    const map = { today: openApptSheet, plan: openApptSheet, labs: openLabSheet, syms: openSymSheet, more: openApptSheet };
-    (map[S.page] || openApptSheet)();
-  });
+  // 悬浮按钮已弃用（窄屏会遮挡内容），改为各页顶部的内联操作按钮。
+  // 这里保留绑定以兼容，但元素已由 CSS 隐藏。
+  const fab = document.getElementById('fab');
+  if (fab) fab.addEventListener('click', () => primaryAction());
+}
+
+/** 当前页面的主要新增动作 */
+function primaryAction() {
+  const map = {
+    today: openApptSheet,
+    plan: openApptSheet,
+    labs: openLabSheet,
+    syms: openSymSheet,
+    more: openApptSheet,
+  };
+  (map[S.page] || openApptSheet)();
+}
+
+/** 在页面顶部渲染操作按钮行 */
+function pageActions(items) {
+  const row = el('div', { class: 'page-actions' });
+  for (const it of items) {
+    row.append(el('button', {
+      class: 'btn' + (it.primary ? ' primary' : ''),
+      onclick: it.fn,
+    }, it.label));
+  }
+  return row;
 }
 
 function render() {
@@ -106,10 +137,9 @@ function render() {
   });
 
   const fab = document.getElementById('fab');
-  fab.style.display = (S.page === 'more') ? 'none' : 'flex';
+  if (fab) fab.style.display = 'none';
 
-  const p = S.profile;
-  document.getElementById('hd-who').textContent = p.name ? `${p.name} · 治疗跟进` : '治疗跟进';
+  const p = S.profile;  document.getElementById('hd-who').textContent = p.name ? `${p.name} · 治疗跟进` : '治疗跟进';
   const d = new Date();
   document.getElementById('hd-date').textContent = `${d.getMonth() + 1}/${d.getDate()} 周${weekday(today())}`;
 
@@ -146,18 +176,51 @@ function pageToday() {
     return;
   }
 
+  v.append(pageActions([
+    { label: '记录今天', fn: () => openSymSheet(), primary: true },
+    { label: '加日程', fn: () => openApptSheet() },
+  ]));
+
   // 红线提示：最近 3 天的记录
+  // 设计：默认折成一行紧凑条，点开才展开详情 —— 避免首屏被红框吃掉
   const recent = S.syms.filter((r) => daysBetween(r.date, t) <= 3 && daysBetween(r.date, t) >= 0);
   const flags = [];
   for (const r of recent) {
     for (const m of checkRedFlags(r)) if (!flags.includes(m)) flags.push(m);
   }
   if (flags.length) {
-    const box = el('div', { class: 'alert bad' }, [
-      el('div', { class: 't' }, '这几条建议今天就联系医生'),
-    ]);
-    for (const m of flags) box.append(el('div', { text: '· ' + m }));
-    v.append(box);
+    const bar = el('button', {
+      class: 'alert bad compact',
+      style: 'width:100%;text-align:left;font-family:inherit;cursor:pointer;border-width:1px',
+      onclick: () => {
+        const box = el('div', {});
+        box.append(el('div', { class: 'alert bad', style: 'margin-bottom:12px' }, [
+          el('div', { class: 't' }, '这几条建议今天就联系医生'),
+          ...flags.map((m) => el('div', { text: '· ' + m })),
+        ]));
+        box.append(el('p', { class: 'muted tiny' },
+          '这些提示来自你最近记录的体温和症状。它不替代医生判断，但这类情况通常不建议拖到下次门诊。'));
+        openSheet({
+          title: '需要留意',
+          body: box,
+          footer: [
+            el('button', { class: 'btn', onclick: closeSheet }, '知道了'),
+            el('button', {
+              class: 'btn primary',
+              onclick: () => {
+                closeSheet();
+                if (S.profile.doctorPhone) location.href = 'tel:' + S.profile.doctorPhone;
+                else toast('还没填医生电话，可以去「更多 → 患者信息」补上');
+              },
+            }, S.profile.doctorPhone ? '拨打医生电话' : '联系医生'),
+          ],
+        });
+      },
+    });
+    bar.append(el('span', { class: 'ico' }, '⚠'));
+    bar.append(el('span', { class: 'txt' }, flags.length === 1 ? '有一条需要今天联系医生' : `${flags.length} 条需要今天联系医生`));
+    bar.append(el('span', { class: 'chev', style: 'color:#a8322a;flex-shrink:0;font-size:15px' }, '›'));
+    v.append(bar);
   }
 
   // 今天 / 最近日程
@@ -166,26 +229,51 @@ function pageToday() {
 
   const hero = el('div', { class: 'hero' });
   if (todays.length) {
-    hero.append(el('div', { class: 'bigline' }, `今天有 ${todays.length} 件事`));
-    hero.append(el('div', { class: 'subline' }, todays.map((a) => a.title).join('、')));
+    hero.append(el('div', { class: 'hero-label' }, '今天'));
+    hero.append(el('div', { class: 'bigline' }, todays.length === 1 ? todays[0].title : `今天有 ${todays.length} 件事`));
+    if (todays.length > 1) {
+      hero.append(el('div', { class: 'subline' }, todays.map((a) => a.title).join('、')));
+    } else {
+      const sub = [typeMeta(todays[0].type).name];
+      if (todays[0].time) sub.push(todays[0].time);
+      if (todays[0].place) sub.push(todays[0].place);
+      hero.append(el('div', { class: 'subline' }, sub.join(' · ')));
+    }
   } else if (next) {
     const dd = daysBetween(t, next.date);
-    hero.append(el('div', { class: 'bigline' }, `下一次：${next.title}`));
+    hero.append(el('div', { class: 'hero-label' }, '下一次'));
+    hero.append(el('div', { class: 'bigline' }, next.title));
     const cd = el('div', { class: 'countdown' });
     cd.append(el('span', { class: 'num' }, String(dd)));
     cd.append(el('span', { class: 'unit' }, `天后 · ${fmtMD(next.date)} 周${weekday(next.date)}${next.time ? ' ' + next.time : ''}`));
     hero.append(cd);
-    if (next.note) hero.append(el('div', { class: 'muted tiny', style: 'margin-top:6px' }, next.note));
+    if (next.place) hero.append(el('div', { class: 'subline', style: 'margin-top:4px' }, next.place));
   } else {
     hero.append(el('div', { class: 'bigline' }, '暂时没有安排下一次'));
     hero.append(el('div', { class: 'subline' }, '在「日程」里加一条，或者用治疗方案自动排期'));
+  }
+
+  // 周期进度条：让「治到哪一步了」一眼可见
+  const doneChemo = S.appts.filter((a) => a.type === 'chemo' && a.done).length;
+  const totalChemo = S.appts.filter((a) => a.type === 'chemo').length;
+  if (totalChemo > 0) {
+    const pct = Math.round((doneChemo / totalChemo) * 100);
+    const pg = el('div', { class: 'progress' });
+    const bar2 = el('div', { class: 'progress-bar' });
+    bar2.append(el('div', { class: 'progress-fill', style: `width:${pct}%` }));
+    pg.append(bar2);
+    pg.append(el('div', { class: 'progress-text' }, `化疗进度 ${doneChemo}/${totalChemo} 周期`));
+    hero.append(pg);
   }
   v.append(hero);
 
   // 今天要做的清单
   if (todays.length) {
     const c = el('div', { class: 'card' });
-    c.append(el('div', { class: 'card-head' }, [el('h2', {}, '今天')]));
+    c.append(el('div', { class: 'card-head' }, [
+      el('h2', {}, '今天要做'),
+      el('span', { class: 'hint' }, '做完点一下'),
+    ]));
     for (const a of todays) {
       const done = !!a.done;
       const b = el('button', {
@@ -201,7 +289,7 @@ function pageToday() {
         },
       });
       b.append(el('span', { class: 'box' }, done ? '✓' : ''));
-      const meta = el('span', { class: 'body', style: 'flex:1' });
+      const meta = el('span', { class: 'body', style: 'flex:1;min-width:0' });
       meta.append(el('div', { class: 'lbl' }, a.title));
       const sub = [typeMeta(a.type).name];
       if (a.time) sub.push(a.time);
@@ -350,11 +438,11 @@ function pagePlan() {
     return;
   }
 
-  // 自动排期入口
-  v.append(el('div', { class: 'btn-row', style: 'margin-bottom:12px' }, [
-    el('button', { class: 'btn sm', onclick: openCycleSheet }, '自动排期'),
-    el('button', { class: 'btn sm', onclick: openRadioSheet }, '排放疗'),
-    el('button', { class: 'btn sm', onclick: openICS }, '存到手机日历'),
+  // 顶部操作
+  v.append(pageActions([
+    { label: '自动排期', fn: openCycleSheet, primary: true },
+    { label: '排放疗', fn: openRadioSheet },
+    { label: '存日历', fn: openICS },
   ]));
 
   if (upcoming.length) {
@@ -590,9 +678,9 @@ function openICS() {
 function pageLabs() {
   const v = view();
 
-  v.append(el('div', { class: 'btn-row', style: 'margin-bottom:12px' }, [
-    el('button', { class: 'btn sm', onclick: () => openLabSheet() }, '录入化验单'),
-    el('button', { class: 'btn sm', onclick: openLabPaste }, '批量粘贴'),
+  v.append(pageActions([
+    { label: '录入化验单', fn: () => openLabSheet(), primary: true },
+    { label: '批量粘贴', fn: openLabPaste },
   ]));
 
   if (!S.labs.length) {
@@ -964,9 +1052,11 @@ function openSymSheet(existing) {
     if (!items.length) continue;
     body.append(el('div', { class: 'section-title' }, grp));
     for (const s of items) {
-      const wrap = el('div', { style: 'margin-bottom:10px' });
-      const label = el('div', { style: 'font-size:.86rem;font-weight:600;margin-bottom:5px' }, s.name);
-      if (s.ireae) label.append(el('span', { class: 'tag warn', style: 'margin-left:6px;font-size:.66rem' }, '免疫相关'));
+      const wrap = el('div', { style: 'margin-bottom:14px' });
+      const label = el('div', {
+        style: 'font-size:var(--fs-sm);font-weight:600;margin-bottom:7px;line-height:1.35;display:flex;align-items:center;gap:6px;flex-wrap:wrap',
+      }, s.name);
+      if (s.ireae) label.append(el('span', { class: 'tag warn', style: 'font-size:var(--fs-2xs)' }, '免疫相关'));
       wrap.append(label);
 
       const seg = el('div', { class: 'seg lvl' });
@@ -1050,17 +1140,22 @@ function pageMore() {
 
   const groups = [
     {
-      title: '资料',
+      title: '资料与导入',
       items: [
-        { icon: '📁', name: '就诊资料库', desc: '报告单、出院小结、发票，拍个照存起来', fn: openDocsPage },
+        { icon: '📥', name: '批量导入资料', desc: '把病历、化验单照片交给 AI 整理成数据', fn: openImportSheet, tone: 'blue' },
+        { icon: '📁', name: '就诊资料库', desc: `${S.docs.length} 份 · 报告单、出院小结、发票`, fn: openDocsPage },
         { icon: '📝', name: '就诊备忘', desc: '下次要问医生的问题、他说的要点', fn: openNotesPage },
       ],
     },
     {
       title: '设置',
       items: [
-        { icon: '👤', name: '患者信息与方案', desc: S.profile.name || '还没填', fn: openProfileSheet },
-        { icon: '🔔', name: '微信提醒推送', desc: S.profile.serverchanKey ? '已配置' : '未配置', fn: openPushSheet },
+        {
+          icon: '👤', name: '患者信息与方案',
+          desc: S.profile.name ? `${S.profile.name}${S.profile.diagnosis ? ' · ' + S.profile.diagnosis : ''}` : '还没填，先填这个',
+          fn: openProfileSheet,
+        },
+        { icon: '🔔', name: '微信提醒推送', desc: S.profile.serverchanKey ? '已配置' : '未配置', fn: openPushSheet, tone: 'warn' },
         { icon: '📅', name: '导出到手机日历', desc: '生成 ics 文件导入系统日历', fn: openICS },
       ],
     },
@@ -1068,7 +1163,7 @@ function pageMore() {
       title: '数据安全',
       items: [
         { icon: '💾', name: '备份全部数据', desc: '导出一个文件，存到网盘或发给自己', fn: doBackup },
-        { icon: '📥', name: '从备份恢复', desc: '换手机时用', fn: doRestore },
+        { icon: '🔃', name: '从备份恢复', desc: '换手机时用', fn: doRestore },
         { icon: '🖨', name: '生成就诊一页纸', desc: '复诊时给医生看的汇总', fn: openPrintSheet },
       ],
     },
@@ -1076,25 +1171,176 @@ function pageMore() {
 
   for (const g of groups) {
     v.append(el('div', { class: 'section-title' }, g.title));
-    const c = el('div', { class: 'card' });
+    const c = el('div', { class: 'card', style: 'padding:6px 16px' });
     for (const it of g.items) {
-      const row = el('div', { class: 'item', style: 'cursor:pointer', onclick: it.fn });
-      row.append(el('div', { style: 'font-size:1.4rem;width:32px;flex-shrink:0;text-align:center' }, it.icon));
-      const body = el('div', { class: 'body' });
-      body.append(el('div', { class: 'title' }, it.name));
-      body.append(el('div', { class: 'meta' }, it.desc));
-      row.append(body);
-      row.append(el('div', { class: 'tail muted' }, '›'));
+      const row = el('div', { class: 'nav-item', onclick: it.fn });
+      const box = el('div', { class: 'ico-box' + (it.tone ? ' ' + it.tone : '') }, it.icon);
+      row.append(box);
+      const txt = el('div', { class: 'txt' });
+      txt.append(el('div', { class: 'nm' }, it.name));
+      txt.append(el('div', { class: 'ds' }, it.desc));
+      row.append(txt);
+      row.append(el('div', { class: 'chev' }, '›'));
       c.append(row);
     }
     v.append(c);
   }
 
-  v.append(el('div', { class: 'tiny muted', style: 'text-align:center;padding:16px 0 8px' },
-    '数据只存在这台手机的浏览器里。换手机、清缓存前记得先备份。'));
-  v.append(el('div', { class: 'tiny muted', style: 'text-align:center;padding-bottom:12px' },
-    '这个工具帮记录和提醒，不替代医生判断。'));
+  v.append(el('div', {
+    class: 'tiny muted',
+    style: 'text-align:center;padding:18px 16px 4px;line-height:1.6',
+  }, '数据只存在这台手机的浏览器里。换手机、清缓存前记得先备份。'));
+  v.append(el('div', {
+    class: 'tiny',
+    style: 'text-align:center;padding:0 16px 14px;line-height:1.6;color:var(--ink-4)',
+  }, '这个工具帮记录和提醒，不替代医生判断。'));
 }
+
+/* ---------- 批量导入 ---------- */
+
+function openImportSheet() {
+  const body = el('div', {});
+
+  // 说明
+  body.append(el('div', { class: 'alert info' }, [
+    el('div', { class: 't' }, '怎么用'),
+    el('div', {}, '把病历、化验单、出院小结的照片交给 AI 识别，它会整理成结构化数据，你确认后一键导入。'),
+  ]));
+
+  // 第一步：复制提示词
+  body.append(el('div', { class: 'section-title' }, '第 1 步 · 复制这段指令'));
+  body.append(el('p', { class: 'muted tiny', style: 'margin-bottom:8px' },
+    '连同照片一起发给 AI（DeepSeek / Claude / 豆包都行），它就会按格式输出数据。'));
+
+  const prompt = buildExtractPrompt();
+  const copyBtn = el('button', { class: 'btn block primary', type: 'button' }, '复制提取指令');
+  copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(prompt);
+      toast('已复制，去发给 AI 吧');
+      copyBtn.textContent = '已复制 ✓';
+      setTimeout(() => { copyBtn.textContent = '复制提取指令'; }, 2500);
+    } catch {
+      // 剪贴板不可用时，退回到弹窗让人手动复制
+      openSheet({
+        title: '手动复制',
+        body: el('textarea', { style: 'min-height:300px;font-size:12px', readonly: true }, prompt),
+        footer: [el('button', { class: 'btn', onclick: openImportSheet }, '返回')],
+      });
+    }
+  });
+  body.append(copyBtn);
+
+  // 第二步：粘贴结果
+  body.append(el('div', { class: 'section-title' }, '第 2 步 · 把 AI 给出的结果粘回来'));
+
+  let parsed = null;
+  const ta = el('textarea', {
+    placeholder: '把 AI 返回的 JSON 整段粘贴到这里…',
+    style: 'min-height:140px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px',
+  });
+  body.append(field('AI 返回的内容', ta));
+
+  const preview = el('div', {});
+  body.append(preview);
+
+  const parseBtn = el('button', { class: 'btn block', type: 'button' }, '检查一下能导入什么');
+  parseBtn.addEventListener('click', () => {
+    preview.replaceChildren();
+    const res = validateBundle(ta.value);
+    parsed = res.ok ? res.data : null;
+
+    if (res.errors.length) {
+      const box = el('div', { class: 'alert bad' }, [el('div', { class: 't' }, '有问题')]);
+      for (const e of res.errors) box.append(el('div', { text: '· ' + e }));
+      preview.append(box);
+      return;
+    }
+
+    // 摘要
+    const d = res.data;
+    const rows = [];
+    if (Object.keys(d.profile).length) {
+      rows.push(['基本情况', Object.entries(d.profile)
+        .map(([k, v]) => `${PROFILE_LABEL[k] || k}: ${v}`).join('，')]);
+    }
+    if (d.labs.length) rows.push(['化验单', `${d.labs.length} 张`]);
+    if (d.appointments.length) rows.push(['日程', `${d.appointments.length} 条`]);
+    if (d.docs.length) rows.push(['资料', `${d.docs.length} 份`]);
+    if (d.symptoms.length) rows.push(['症状记录', `${d.symptoms.length} 天`]);
+
+    const box = el('div', { class: 'alert info' }, [
+      el('div', { class: 't' }, '识别到以下内容，确认没问题再导入'),
+    ]);
+    for (const [k, v] of rows) {
+      const row = el('div', { style: 'display:flex;gap:8px;padding:3px 0;font-size:var(--fs-xs)' });
+      row.append(el('span', { style: 'color:var(--ink-3);flex-shrink:0' }, k));
+      row.append(el('span', { style: 'font-weight:600;overflow-wrap:break-word;min-width:0' }, String(v)));
+      box.append(row);
+    }
+    preview.append(box);
+
+    // 明细：化验项目逐条列出，方便核对关键数值
+    if (d.labs.length) {
+      const det = el('div', { class: 'card', style: 'padding:12px 14px' });
+      det.append(el('div', { class: 'tiny', style: 'font-weight:700;color:var(--ink-2);margin-bottom:6px' }, '化验明细（重点核对）'));
+      for (const lab of d.labs) {
+        const head = el('div', { class: 'tiny', style: 'font-weight:700;margin:8px 0 3px;color:var(--ink-2)' },
+          fmtYMD(lab.date) + (lab.note ? ' · ' + lab.note : ''));
+        det.append(head);
+        for (const [code, v] of Object.entries(lab.values)) {
+          const it = LAB_INDEX.get(code);
+          const flag = judge(code, v);
+          const row = el('div', { style: 'display:flex;justify-content:space-between;gap:8px;padding:2px 0;font-size:var(--fs-xs)' });
+          row.append(el('span', { style: 'color:var(--ink-2);min-width:0;overflow-wrap:break-word' }, it?.name || code));
+          row.append(el('span', {
+            style: `font-weight:600;font-variant-numeric:tabular-nums;flex-shrink:0;${flag !== 'ok' ? 'color:var(--bad)' : ''}`,
+          }, `${fmtNum(v)} ${it?.unit || ''}`));
+          det.append(row);
+        }
+      }
+      preview.append(det);
+    }
+
+    // 警告
+    if (res.warnings.length) {
+      const w = el('div', { class: 'alert warn' }, [
+        el('div', { class: 't' }, `${res.warnings.length} 项被跳过或修正`),
+        ...res.warnings.slice(0, 8).map((x) => el('div', { class: 'tiny', text: '· ' + x })),
+        ...(res.warnings.length > 8 ? [el('div', { class: 'tiny', text: `…还有 ${res.warnings.length - 8} 条` })] : []),
+      ]);
+      preview.append(w);
+    }
+  });
+  body.append(parseBtn);
+
+  openSheet({
+    title: '批量导入资料',
+    body,
+    footer: [
+      el('button', { class: 'btn', onclick: closeSheet }, '关闭'),
+      el('button', {
+        class: 'btn primary',
+        onclick: async () => {
+          if (!parsed) { toast('先点「检查一下能导入什么」'); return; }
+          const c = await applyBundle(parsed);
+          await reload();
+          closeSheet();
+          S.page = 'today';
+          location.hash = 'today';
+          render();
+          toast(`导入完成：${c.labs} 张化验、${c.appointments} 条日程、${c.docs} 份资料`, 3200);
+        },
+      }, '确认导入'),
+    ],
+  });
+}
+
+const PROFILE_LABEL = {
+  name: '姓名', sex: '性别', birth: '出生', diagnosis: '诊断', stage: '分期',
+  hospital: '医院', dept: '科室', doctor: '医生',
+  chemoCycleDays: '化疗周期', immunoCycleDays: '免疫间隔', radioTotal: '放疗次数',
+};
 
 /* ---------- 资料库 ---------- */
 
