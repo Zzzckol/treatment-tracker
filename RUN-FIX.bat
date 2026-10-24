@@ -1,1 +1,24 @@
-QGVjaG8gb2ZmCmNoY3AgNjUwMDEgPm51bCAyPiYxCnNldGxvY2FsCgp0aXRsZSBGaXggR2l0SHViIEhvc3RzIC0gdHJlYXRtZW50LXRyYWNrZXIKCnJlbSAtLS0tIENoZWNrIGFkbWluLCBzZWxmLWVsZXZhdGUgaWYgbmVlZGVkIC0tLS0KbmV0IHNlc3Npb24gPm51bCAyPiYxCmlmICVlcnJvckxldmVsJSBuZXEgMCAoCiAgICBlY2hvLgogICAgZWNobyAgIFJlcXVlc3RpbmcgYWRtaW5pc3RyYXRvciByaWdodHMuLi4KICAgIGVjaG8gICBBIFVBQyB3aW5kb3cgd2lsbCBwb3AgdXAuIFBsZWFzZSBjbGljayAiWWVzIi4KICAgIGVjaG8uCiAgICBwb3dlcnNoZWxsIC1Ob1Byb2ZpbGUgLUV4ZWN1dGlvblBvbGljeSBCeXBhc3MgLUNvbW1hbmQgIlN0YXJ0LVByb2Nlc3MgLUZpbGVQYXRoICclfmYwJyAtVmVyYiBSdW5BcyIKICAgIGV4aXQgL2IKKQoKZWNoby4KZWNobyAgIFJ1bm5pbmcgd2l0aCBhZG1pbmlzdHJhdG9yIHJpZ2h0cy4KZWNoby4KCnBvd2Vyc2hlbGwgLU5vUHJvZmlsZSAtRXhlY3V0aW9uUG9saWN5IEJ5cGFzcyAtRmlsZSAiJX5kcDBmaXgtZ2l0aHViLWhvc3RzLnBzMSIKCmVuZGxvY2FsCg==
+@echo off
+chcp 65001 >nul 2>&1
+setlocal
+
+title Fix GitHub Hosts - treatment-tracker
+
+rem ---- Check admin, self-elevate if needed ----
+net session >nul 2>&1
+if %errorLevel% neq 0 (
+    echo.
+    echo   Requesting administrator rights...
+    echo   A UAC window will pop up. Please click "Yes".
+    echo.
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath '%~f0' -Verb RunAs"
+    exit /b
+)
+
+echo.
+echo   Running with administrator rights.
+echo.
+
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0fix-github-hosts.ps1"
+
+endlocal
