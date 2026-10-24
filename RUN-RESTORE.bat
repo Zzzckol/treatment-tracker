@@ -1,1 +1,23 @@
-QGVjaG8gb2ZmCmNoY3AgNjUwMDEgPm51bCAyPiYxCnNldGxvY2FsCgp0aXRsZSBSZXN0b3JlIEhvc3RzIC0gdHJlYXRtZW50LXRyYWNrZXIKCm5ldCBzZXNzaW9uID5udWwgMj4mMQppZiAlZXJyb3JMZXZlbCUgbmVxIDAgKAogICAgZWNoby4KICAgIGVjaG8gICBSZXF1ZXN0aW5nIGFkbWluaXN0cmF0b3IgcmlnaHRzLi4uCiAgICBlY2hvICAgQSBVQUMgd2luZG93IHdpbGwgcG9wIHVwLiBQbGVhc2UgY2xpY2sgIlllcyIuCiAgICBlY2hvLgogICAgcG93ZXJzaGVsbCAtTm9Qcm9maWxlIC1FeGVjdXRpb25Qb2xpY3kgQnlwYXNzIC1Db21tYW5kICJTdGFydC1Qcm9jZXNzIC1GaWxlUGF0aCAnJX5mMCcgLVZlcmIgUnVuQXMiCiAgICBleGl0IC9iCikKCmVjaG8uCmVjaG8gICBSdW5uaW5nIHdpdGggYWRtaW5pc3RyYXRvciByaWdodHMuCmVjaG8uCgpwb3dlcnNoZWxsIC1Ob1Byb2ZpbGUgLUV4ZWN1dGlvblBvbGljeSBCeXBhc3MgLUZpbGUgIiV+ZHAwcmVzdG9yZS1ob3N0cy5wczEiCgplbmRsb2NhbAo=
+@echo off
+chcp 65001 >nul 2>&1
+setlocal
+
+title Restore Hosts - treatment-tracker
+
+net session >nul 2>&1
+if %errorLevel% neq 0 (
+    echo.
+    echo   Requesting administrator rights...
+    echo   A UAC window will pop up. Please click "Yes".
+    echo.
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath '%~f0' -Verb RunAs"
+    exit /b
+)
+
+echo.
+echo   Running with administrator rights.
+echo.
+
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0restore-hosts.ps1"
+
+endlocal
