@@ -404,12 +404,21 @@ function monthlySummary() {
   const from = addDays(t, -30);
   const nSym = S.syms.filter((r) => r.date >= from).length;
   const nLab = S.labs.filter((r) => r.date >= from).length;
-  const c = el('div', { class: 'card' });
+  const c = el('div', { class: 'card plain' });
   c.append(el('div', { class: 'card-head' }, [el('h2', {}, '近 30 天')]));
-  c.append(el('div', { class: 'kv' }, [el('span', { class: 'k' }, '症状记录'), el('span', { class: 'v' }, `${nSym} 天`)]));
-  c.append(el('div', { class: 'kv' }, [el('span', { class: 'k' }, '化验单'), el('span', { class: 'v' }, `${nLab} 次`)]));
-  const doneAppt = S.appts.filter((a) => a.done && a.date >= from).length;
-  c.append(el('div', { class: 'kv' }, [el('span', { class: 'k' }, '完成日程'), el('span', { class: 'v' }, `${doneAppt} 项`)]));
+  const row = el('div', { style: 'display:flex;gap:8px' });
+  const cell = (label, val) => {
+    const d = el('div', { style: 'flex:1;text-align:center' });
+    d.append(el('div', {
+      style: 'font-size:var(--fs-lg);font-weight:800;color:var(--ink-1);font-variant-numeric:tabular-nums;line-height:1.2',
+    }, String(val)));
+    d.append(el('div', { style: 'font-size:var(--fs-2xs);color:var(--ink-3);margin-top:2px' }, label));
+    return d;
+  };
+  row.append(cell('症状记录', nSym + ' 天'));
+  row.append(cell('化验单', nLab + ' 次'));
+  row.append(cell('完成日程', S.appts.filter((a) => a.done && a.date >= from).length + ' 项'));
+  c.append(row);
   return c;
 }
 
@@ -1171,7 +1180,7 @@ function pageMore() {
 
   for (const g of groups) {
     v.append(el('div', { class: 'section-title' }, g.title));
-    const c = el('div', { class: 'card', style: 'padding:6px 16px' });
+    const c = el('div', { class: 'card list' });
     for (const it of g.items) {
       const row = el('div', { class: 'nav-item', onclick: it.fn });
       const box = el('div', { class: 'ico-box' + (it.tone ? ' ' + it.tone : '') }, it.icon);
