@@ -1,1 +1,46 @@
-IyBVbmRvIHRoZSBnaXRodWIuY29tIGhvc3RzIGZpeAojIFJ1bjogcmlnaHQtY2xpY2sgLT4gUnVuIHdpdGggUG93ZXJTaGVsbCwgb3IgZXhlY3V0ZSBpbiBhbiBBRE1JTiBQb3dlclNoZWxsLgoKJEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICdTdG9wJwoKJGlzQWRtaW4gPSAoW1NlY3VyaXR5LlByaW5jaXBhbC5XaW5kb3dzUHJpbmNpcGFsXVtTZWN1cml0eS5QcmluY2lwYWwuV2luZG93c0lkZW50aXR5XTo6R2V0Q3VycmVudCgpKS5Jc0luUm9sZShbU2VjdXJpdHkuUHJpbmNpcGFsLldpbmRvd3NCdWlsdEluUm9sZV06OkFkbWluaXN0cmF0b3IpCmlmICgtbm90ICRpc0FkbWluKSB7CiAgICBXcml0ZS1Ib3N0ICJOZWVkIGFkbWluaXN0cmF0b3IgcmlnaHRzLiIgLUZvcmVncm91bmRDb2xvciBSZWQKICAgIFJlYWQtSG9zdCAiUHJlc3MgRW50ZXIgdG8gZXhpdCIKICAgIGV4aXQgMQp9CgokaG9zdHNQYXRoID0gIiRlbnY6V0lORElSXFN5c3RlbTMyXGRyaXZlcnNcZXRjXGhvc3RzIgokbWFya2VyID0gJyMgPT09IHRyZWF0bWVudC10cmFja2VyOiBHaXRIdWIgZml4IChCRUdJTikgPT09JwokbWFya2VyRW5kID0gJyMgPT09IHRyZWF0bWVudC10cmFja2VyOiBHaXRIdWIgZml4IChFTkQpID09PScKCldyaXRlLUhvc3QgIiIKV3JpdGUtSG9zdCAiQ2xlYW5pbmcgaG9zdHMgZml4IGVudHJpZXMgLi4uIiAtRm9yZWdyb3VuZENvbG9yIEN5YW4KCiRsaW5lcyA9IEdldC1Db250ZW50ICRob3N0c1BhdGggLUVycm9yQWN0aW9uIFNpbGVudGx5Q29udGludWUKJG91dCA9IE5ldy1PYmplY3QgU3lzdGVtLkNvbGxlY3Rpb25zLkFycmF5TGlzdAokc2tpcCA9ICRmYWxzZQokZm91bmQgPSAwCmZvcmVhY2ggKCRsIGluICRsaW5lcykgewogICAgaWYgKCRsIC1lcSAkbWFya2VyKSB7ICRza2lwID0gJHRydWU7ICRmb3VuZCsrOyBjb250aW51ZSB9CiAgICBpZiAoJGwgLWVxICRtYXJrZXJFbmQpIHsgJHNraXAgPSAkZmFsc2U7IGNvbnRpbnVlIH0KICAgIGlmICgtbm90ICRza2lwKSB7IFt2b2lkXSRvdXQuQWRkKCRsKSB9Cn0KCmlmICgkZm91bmQgLWVxIDApIHsKICAgIFdyaXRlLUhvc3QgIiAgTm8gZml4IGVudHJpZXMgZm91bmQsIG5vdGhpbmcgdG8gZG8uIiAtRm9yZWdyb3VuZENvbG9yIFllbGxvdwp9IGVsc2UgewogICAgd2hpbGUgKCRvdXQuQ291bnQgLWd0IDAgLWFuZCAkb3V0WyRvdXQuQ291bnQgLSAxXS5UcmltKCkgLWVxICcnKSB7CiAgICAgICAgJG91dC5SZW1vdmVBdCgkb3V0LkNvdW50IC0gMSkKICAgIH0KICAgICRjb250ZW50ID0gKCRvdXQgLWpvaW4gImByYG4iKQogICAgW1N5c3RlbS5JTy5GaWxlXTo6V3JpdGVBbGxUZXh0KCRob3N0c1BhdGgsICRjb250ZW50LCAoTmV3LU9iamVjdCBTeXN0ZW0uVGV4dC5VVEY4RW5jb2RpbmcoJGZhbHNlKSkpCiAgICBXcml0ZS1Ib3N0ICIgIFJlbW92ZWQuIiAtRm9yZWdyb3VuZENvbG9yIEdyZWVuCn0KCmlwY29uZmlnIC9mbHVzaGRucyB8IE91dC1OdWxsCldyaXRlLUhvc3QgIiAgRE5TIGNhY2hlIGZsdXNoZWQuIiAtRm9yZWdyb3VuZENvbG9yIEdyZWVuCldyaXRlLUhvc3QgIiIKV3JpdGUtSG9zdCAiRG9uZS4gZ2l0aHViLmNvbSBpcyBiYWNrIHRvIHN5c3RlbSBkZWZhdWx0IHJlc29sdXRpb24uIiAtRm9yZWdyb3VuZENvbG9yIEdyZWVuCgpSZWFkLUhvc3QgIlByZXNzIEVudGVyIHRvIGNsb3NlIgo=
+# Undo the github.com hosts fix
+# Run: right-click -> Run with PowerShell, or execute in an ADMIN PowerShell.
+
+$ErrorActionPreference = 'Stop'
+
+$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not $isAdmin) {
+    Write-Host "Need administrator rights." -ForegroundColor Red
+    Read-Host "Press Enter to exit"
+    exit 1
+}
+
+$hostsPath = "$env:WINDIR\System32\drivers\etc\hosts"
+$marker = '# === treatment-tracker: GitHub fix (BEGIN) ==='
+$markerEnd = '# === treatment-tracker: GitHub fix (END) ==='
+
+Write-Host ""
+Write-Host "Cleaning hosts fix entries ..." -ForegroundColor Cyan
+
+$lines = Get-Content $hostsPath -ErrorAction SilentlyContinue
+$out = New-Object System.Collections.ArrayList
+$skip = $false
+$found = 0
+foreach ($l in $lines) {
+    if ($l -eq $marker) { $skip = $true; $found++; continue }
+    if ($l -eq $markerEnd) { $skip = $false; continue }
+    if (-not $skip) { [void]$out.Add($l) }
+}
+
+if ($found -eq 0) {
+    Write-Host "  No fix entries found, nothing to do." -ForegroundColor Yellow
+} else {
+    while ($out.Count -gt 0 -and $out[$out.Count - 1].Trim() -eq '') {
+        $out.RemoveAt($out.Count - 1)
+    }
+    $content = ($out -join "`r`n")
+    [System.IO.File]::WriteAllText($hostsPath, $content, (New-Object System.Text.UTF8Encoding($false)))
+    Write-Host "  Removed." -ForegroundColor Green
+}
+
+ipconfig /flushdns | Out-Null
+Write-Host "  DNS cache flushed." -ForegroundColor Green
+Write-Host ""
+Write-Host "Done. github.com is back to system default resolution." -ForegroundColor Green
+
+Read-Host "Press Enter to close"
