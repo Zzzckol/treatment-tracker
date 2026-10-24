@@ -183,9 +183,21 @@ await js(`
 await go(BASE);
 await sleep(900);
 const v5 = await js(`document.getElementById('view').textContent`);
-check('今天页出现红线预警', v5.includes('建议今天就联系医生'));
-check('预警提到发热', v5.includes('38.5'));
-check('预警提到腹泻', v5.includes('腹泻'));
+check('今天页出现红线预警', v5.includes('需要今天联系医生'));
+// 预警详情现在收在弹层里，点开验证
+await js(`
+  (() => {
+    const bar = document.querySelector('#view .alert.compact');
+    if (bar) bar.click();
+    return !!bar;
+  })()
+`);
+await sleep(500);
+const sheet5 = await js(`document.getElementById('sheet-body').textContent`);
+check('弹层里能看到发热详情', sheet5.includes('38.5'), sheet5.slice(0, 40));
+check('弹层里能看到腹泻提示', sheet5.includes('腹泻'));
+await js(`document.getElementById('sheet-x').click()`);
+await sleep(300);
 await shot('05-红线预警');
 
 console.log('\n[6] 记录页与热力条');
@@ -205,13 +217,13 @@ check('更多页有备份入口', v7.includes('备份全部数据'));
 check('更多页有微信提醒', v7.includes('微信提醒推送'));
 await shot('07-更多页');
 
-// 按可见文字点「生成就诊一页纸」，避免依赖列表下标
+// 按可见文字点「生成就诊一页纸」（"更多"页已改用 nav-item 结构）
 await js(`
   (() => {
-    const rows = [...document.querySelectorAll('#view .item')];
+    const rows = [...document.querySelectorAll('#view .nav-item, #view .item')];
     const target = rows.find(r => r.textContent.includes('生成就诊一页纸'));
     if (target) target.click();
-    return target ? target.textContent : 'not found';
+    return target ? 'clicked' : 'not found';
   })()
 `);
 await sleep(900);
