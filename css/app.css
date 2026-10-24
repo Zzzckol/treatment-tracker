@@ -97,12 +97,33 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro SC", "PingFang SC",
     "Hiragino Sans GB", "Microsoft YaHei", "Source Han Sans SC", sans-serif;
   font-size: var(--fs-base);
-  line-height: 1.55;
+  /* 中文行高 1.5 起，方块字比西文需要更多行距 */
+  line-height: 1.6;
+  /* 中文正文极轻微字距，西文段落会单独还原 */
+  letter-spacing: .01em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overscroll-behavior-y: contain;
   /* 底部留白由 main 的 padding-bottom 处理，这里不再重复 */
 }
+
+/* 中文斜体在浏览器里是合成倾斜，很难看。要强调用字重或颜色 */
+address, cite, dfn, dt, em, i { font-style: normal; }
+em, strong { font-weight: 600; }
+
+/* 中文引号用直角引号 */
+q { quotes: "「" "」" "『" "』"; }
+q::before { content: open-quote; }
+q::after { content: close-quote; }
+
+/* 数字列对齐：指标、日期、金额都用等宽数字 */
+.tabular, .kv .v, .labrow .val, .countdown .num, .progress-text,
+.mono, [data-num] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 西文内容还原字距，否则英文单词会被拉开 */
+:lang(en) { letter-spacing: normal; }
 
 h1, h2, h3, h4 {
   margin: 0;
@@ -114,6 +135,13 @@ h1 { font-size: var(--fs-xl); }
 h2 { font-size: var(--fs-lg); }
 h3 { font-size: var(--fs-base); }
 p { margin: 0 0 .55em; }
+/* 正文行长控制：中文一行 42em 以内读起来不累 */
+.prose {
+  max-width: 42em;
+  text-align: justify;
+  text-justify: inter-ideograph;
+  line-height: 1.6;
+}
 a { color: var(--brand-deep); text-decoration: none; }
 
 /* ---------- 顶部栏 ---------- */
@@ -166,13 +194,28 @@ main {
   margin: 0 auto;
 }
 
-/* 卡片 */
+/* 卡片分层
+   不是所有内容都该长成同样的白卡 + 同一个阴影。
+   .card 是承载主要信息的一层（有阴影，浮起来）
+   .card.plain 是次要容器（无阴影，靠边框和底色区分） */
 .card {
   background: var(--surface);
   border-radius: var(--r-lg);
   padding: var(--sp-4);
   margin-bottom: var(--sp-3);
   box-shadow: var(--sh-2);
+}
+
+/* 次要卡片：不抢视觉重心 */
+.card.plain {
+  box-shadow: none;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+}
+
+/* 列表型卡片：内容本身是列表，用分隔线而不是每项一个卡片 */
+.card.list {
+  padding: var(--sp-1) var(--sp-4);
 }
 
 .card-head {
@@ -183,11 +226,13 @@ main {
   margin-bottom: var(--sp-3);
   min-height: 24px;
 }
+/* 卡片内首尾元素去掉多余外边距 */
+.card > *:first-child { margin-top: 0; }
+.card > *:last-child { margin-bottom: 0; }
 .card-head h2 {
   font-size: var(--fs-sm);
   font-weight: 700;
   color: var(--ink-2);
-  letter-spacing: .02em;
 }
 .card-head .hint {
   font-size: var(--fs-2xs);
@@ -982,6 +1027,16 @@ hr {
   min-height: 56px;
   padding: var(--sp-2) 0;
   cursor: pointer;
+}
+/* 列表项之间用细线分隔，最后一项不加 */
+.nav-item + .nav-item {
+  border-top: 1px solid var(--line);
+}
+.nav-item:active {
+  background: var(--surface-2);
+  margin: 0 calc(var(--sp-4) * -1);
+  padding-left: var(--sp-4);
+  padding-right: var(--sp-4);
 }
 .nav-item .ico-box {
   width: 36px;
