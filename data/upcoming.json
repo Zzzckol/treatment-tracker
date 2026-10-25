@@ -1,47 +1,31 @@
 {
-  "generatedAt": "2026-10-25T12:15:08.651Z",
+  "generatedAt": "2026-10-25T12:26:45.378Z",
   "patient": "郑武",
   "windowDays": 30,
   "items": [
     {
-      "date": "2026-10-26",
+      "date": "2026-10-28",
       "time": "",
       "type": "test",
-      "title": "血常规（化疗后 D4）",
+      "title": "血常规 + 肝肾功能",
       "place": "四川大学华西医院",
-      "daysLeft": 1
+      "daysLeft": 3
     },
     {
-      "date": "2026-10-30",
+      "date": "2026-11-04",
       "time": "",
       "type": "test",
-      "title": "血常规（化疗后 D8）",
+      "title": "血常规 + 肝肾功能",
       "place": "四川大学华西医院",
-      "daysLeft": 5
+      "daysLeft": 10
     },
     {
-      "date": "2026-11-02",
+      "date": "2026-11-10",
       "time": "",
       "type": "test",
-      "title": "血常规 + 肝肾功能（化疗后 D11）",
+      "title": "化疗前评估（血常规 + 肝肾功能 + 电解质）",
       "place": "四川大学华西医院",
-      "daysLeft": 8
-    },
-    {
-      "date": "2026-11-06",
-      "time": "",
-      "type": "test",
-      "title": "血常规 + 肝肾功能（化疗后 D15）",
-      "place": "四川大学华西医院",
-      "daysLeft": 12
-    },
-    {
-      "date": "2026-11-09",
-      "time": "",
-      "type": "test",
-      "title": "下周期前检查（血常规 + 肝肾功能 + 电解质）",
-      "place": "四川大学华西医院",
-      "daysLeft": 15
+      "daysLeft": 16
     },
     {
       "date": "2026-11-12",
