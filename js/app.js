@@ -17,6 +17,7 @@ import {
   typeMeta, toICS, buildReminderPayload,
 } from './plan.js';
 import { buildExtractPrompt, validateBundle, applyBundle } from './import.js';
+import { parseImportHash, fetchEncryptedBundle } from './linkimport.js';
 
 /* ==========================================================
    状态
@@ -61,6 +62,77 @@ async function boot() {
 
   registerSW();
   initPullToRefresh();
+
+  // 链接导入：地址里带 #import= 时自动拉取并导入
+  handleLinkImport();
+}
+
+/** 处理 #import=slug.key 形式的链接导入 */
+async function handleLinkImport() {
+  const parsed = parseImportHash(location.hash);
+  if (!parsed) return;
+
+  // 清掉 hash，避免刷新时重复导入
+  history.replaceState(null, '', location.pathname + location.search);
+
+  const body = el('div', {});
+  body.append(el('div', { class: 'alert info' }, [
+    el('div', { class: 't' }, '正在导入数据'),
+    el('div', { class: 'tiny', style: 'margin-top:4px' }, '从链接读取并解密，大约几秒…'),
+  ]));
+  const status = el('div', { class: 'muted', style: 'text-align:center;padding:20px 0' }, '读取中…');
+  body.append(status);
+  openSheet({ title: '导入数据', body, footer: [] });
+
+  try {
+    const base = location.href.replace(/[^/]*$/, '');
+    const bundle = await fetchEncryptedBundle(parsed, base);
+
+    const counts = {
+      labs: bundle.labs?.length || 0,
+      appointments: bundle.appointments?.length || 0,
+      docs: bundle.docs?.length || 0,
+      symptoms: bundle.symptoms?.length || 0,
+    };
+
+    status.remove();
+    body.append(el('div', { class: 'card plain' }, [
+      el('div', { class: 'tiny', style: 'font-weight:700;margin-bottom:8px' }, '识别到'),
+      el('div', { class: 'kv' }, [el('span', { class: 'k' }, '患者'), el('span', { class: 'v' }, bundle.profile?.name || '-')]),
+      el('div', { class: 'kv' }, [el('span', { class: 'k' }, '化验单'), el('span', { class: 'v' }, counts.labs + ' 次')]),
+      el('div', { class: 'kv' }, [el('span', { class: 'k' }, '日程'), el('span', { class: 'v' }, counts.appointments + ' 条')]),
+      el('div', { class: 'kv' }, [el('span', { class: 'k' }, '资料'), el('span', { class: 'v' }, counts.docs + ' 份')]),
+    ]));
+
+    body.append(el('div', { class: 'alert warn', style: 'margin-top:10px' }, [
+      el('div', { class: 'tiny' }, '导入会合并到现有数据。同一天的化验会合并，不会重复。'),
+    ]));
+
+    const foot = document.getElementById('sheet-foot');
+    foot.replaceChildren();
+    foot.append(el('button', { class: 'btn', onclick: closeSheet }, '取消'));
+    foot.append(el('button', {
+      class: 'btn primary',
+      onclick: async () => {
+        const c = await applyBundle(bundle);
+        await reload();
+        closeSheet();
+        render();
+        toast(`导入完成：${c.labs} 次化验、${c.appointments} 条日程、${c.docs} 份资料`, 3500);
+      },
+    }, '确认导入'));
+  } catch (e) {
+    status.remove();
+    body.append(el('div', { class: 'alert bad' }, [
+      el('div', { class: 't' }, '导入失败'),
+      el('div', { class: 'tiny', style: 'margin-top:4px;line-height:1.6' }, e.message),
+    ]));
+    body.append(el('div', { class: 'tiny muted', style: 'margin-top:8px' },
+      '也可以手动导入：更多 → 批量导入资料，把 JSON 内容粘贴进去。'));
+    const foot = document.getElementById('sheet-foot');
+    foot.replaceChildren();
+    foot.append(el('button', { class: 'btn', onclick: closeSheet }, '关闭'));
+  }
 }
 
 async function reload() {
