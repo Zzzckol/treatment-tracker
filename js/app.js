@@ -117,24 +117,25 @@ async function refreshData(silent = false) {
 
 /** 强制拉取最新版本并重载页面 */
 async function forceUpdate() {
-  toast('正在检查更新…');
+  toast('正在更新…');
   try {
-    const reg = await navigator.serviceWorker.getRegistration();
-    if (reg) {
-      await reg.update();
-      if (reg.waiting) {
-        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-        // 等新 SW 接管后再刷新
-        await new Promise((r) => setTimeout(r, 400));
-      }
+    // 关键顺序：先注销 Service Worker，再清缓存，否则运行中的
+    // SW 会在删除的同时又把响应写回缓存，导致清不掉。
+    const regs = await navigator.serviceWorker.getRegistrations();
+    for (const reg of regs) {
+      await reg.unregister();
     }
-    // 清本地缓存后重载，确保拿到新文件
-    if (navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_CACHE' });
-      await new Promise((r) => setTimeout(r, 500));
-    }
-    location.reload();
-  } catch {
+
+    // 清空所有缓存
+    const keys = await caches.keys();
+    await Promise.all(keys.map((k) => caches.delete(k)));
+
+    // 绕过 HTTP 缓存重新加载
+    const url = new URL(location.href);
+    url.searchParams.set('_u', Date.now().toString(36));
+    location.replace(url.toString());
+  } catch (e) {
+    // 兜底：至少做一次硬刷新
     location.reload();
   }
 }
