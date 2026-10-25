@@ -60,6 +60,7 @@ async function boot() {
   });
 
   registerSW();
+  initPullToRefresh();
 }
 
 async function reload() {
@@ -74,9 +75,194 @@ async function reload() {
 }
 
 function registerSW() {
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  if (!('serviceWorker' in navigator)) return;
+
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+
+  // 新版本就绪时，提示用户
+  navigator.serviceWorker.addEventListener('message', (ev) => {
+    const d = ev.data || {};
+    if (d.type === 'UPDATE_STATUS' && d.hasUpdate) {
+      showUpdateBanner();
+    }
+    if (d.type === 'CACHE_CLEARED') {
+      location.reload();
+    }
+  });
+
+  // 首次注册时如果已有 waiting，也提示
+  navigator.serviceWorker.ready.then((reg) => {
+    if (reg.waiting) showUpdateBanner();
+  });
+}
+
+/* ---------- 刷新与更新 ---------- */
+
+let _refreshing = false;
+
+/** 重新从本地库读取并重绘（不重新加载页面） */
+async function refreshData(silent = false) {
+  if (_refreshing) return;
+  _refreshing = true;
+  try {
+    await reload();
+    render();
+    if (!silent) toast('已刷新');
+  } catch (e) {
+    if (!silent) toast('刷新失败：' + e.message);
+  } finally {
+    _refreshing = false;
   }
+}
+
+/** 强制拉取最新版本并重载页面 */
+async function forceUpdate() {
+  toast('正在检查更新…');
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (reg) {
+      await reg.update();
+      if (reg.waiting) {
+        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        // 等新 SW 接管后再刷新
+        await new Promise((r) => setTimeout(r, 400));
+      }
+    }
+    // 清本地缓存后重载，确保拿到新文件
+    if (navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_CACHE' });
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    location.reload();
+  } catch {
+    location.reload();
+  }
+}
+
+/** 顶部更新提示条 */
+function showUpdateBanner() {
+  if (document.getElementById('update-banner')) return;
+  const bar = el('div', { id: 'update-banner' });
+  bar.append(el('span', { class: 'txt' }, '有新版本'));
+  bar.append(el('button', { onclick: forceUpdate }, '更新'));
+  bar.append(el('button', {
+    class: 'x', 'aria-label': '关闭',
+    onclick: () => bar.remove(),
+  }, '×'));
+  document.body.append(bar);
+}
+
+/**
+ * 下拉刷新
+ *
+ * PWA 独立模式和安卓 Chrome 里，页面滚到顶部再往下拉，触发刷新。
+ * iOS 的 Safari 不支持下拉刷新 PWA，所以这个手势自己实现。
+ */
+function initPullToRefresh() {
+  const THRESHOLD = 70;      // 拉过这个距离才触发
+  const MAX_PULL = 110;      // 最多能拉这么远
+
+  let startY = 0;
+  let pulling = false;
+  let pullDist = 0;
+
+  const indicator = el('div', { id: 'ptr' });
+  indicator.append(el('div', { class: 'spin' }, '↓'));
+  document.body.append(indicator);
+
+  const setIndicator = (dist) => {
+    if (dist <= 0) {
+      indicator.style.transform = 'translate(-50%, -48px)';
+      indicator.style.opacity = '0';
+      return;
+    }
+    const capped = Math.min(dist, MAX_PULL);
+    indicator.style.transform = `translate(-50%, ${Math.min(capped, 48) - 48}px)`;
+    indicator.style.opacity = String(Math.min(1, capped / 50));
+    indicator.classList.toggle('ready', capped >= THRESHOLD);
+    indicator.firstChild.textContent = capped >= THRESHOLD ? '↑' : '↓';
+    indicator.firstChild.style.transform = `rotate(${capped >= THRESHOLD ? 180 : 0}deg)`;
+  };
+
+  const onStart = (y) => {
+    // 只有滚动在顶部才能下拉
+    if (window.scrollY > 2) return;
+    if (document.getElementById('mask')?.classList.contains('on')) return;
+    startY = y;
+    pulling = true;
+    pullDist = 0;
+  };
+
+  const onMove = (y, ev) => {
+    if (!pulling) return;
+    const dist = y - startY;
+    if (dist <= 0) {
+      if (pullDist > 0) { pullDist = 0; setIndicator(0); }
+      return;
+    }
+    // 阻尼：越拉越费劲
+    pullDist = dist * 0.5;
+    if (pullDist > 3) {
+      setIndicator(pullDist);
+      // 阻止页面橡皮筋，让手势可控
+      if (ev.cancelable && pullDist > 6) ev.preventDefault();
+    }
+  };
+
+  const onEnd = async () => {
+    if (!pulling) return;
+    pulling = false;
+    const shouldRefresh = pullDist >= THRESHOLD;
+    if (shouldRefresh) {
+      indicator.classList.add('loading');
+      indicator.firstChild.textContent = '↻';
+      indicator.style.transform = 'translate(-50%, 8px)';
+      indicator.style.opacity = '1';
+    } else {
+      setIndicator(0);
+    }
+    const d = pullDist;
+    pullDist = 0;
+    if (shouldRefresh) {
+      await refreshData(true);
+      toast('已刷新');
+      indicator.classList.remove('loading');
+      setIndicator(0);
+    } else if (d > 0) {
+      setIndicator(0);
+    }
+  };
+
+  // 触摸
+  window.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    onStart(e.touches[0].clientY);
+  }, { passive: true });
+
+  window.addEventListener('touchmove', (e) => {
+    if (e.touches.length !== 1) return;
+    onMove(e.touches[0].clientY, e);
+  }, { passive: false });
+
+  window.addEventListener('touchend', () => onEnd(), { passive: true });
+  window.addEventListener('touchcancel', () => onEnd(), { passive: true });
+
+  // 鼠标（桌面调试用）
+  let mouseDown = false;
+  window.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    mouseDown = true;
+    onStart(e.clientY);
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!mouseDown) return;
+    onMove(e.clientY, e);
+  });
+  window.addEventListener('mouseup', () => {
+    if (!mouseDown) return;
+    mouseDown = false;
+    onEnd();
+  });
 }
 
 /** 悬浮按钮已弃用，此函数保留为空操作以兼容旧调用 */
@@ -1181,6 +1367,13 @@ function pageMore() {
         { icon: '🖨', name: '生成就诊一页纸', desc: '复诊时给医生看的汇总', fn: openPrintSheet },
       ],
     },
+    {
+      title: '页面与更新',
+      items: [
+        { icon: '↻', name: '刷新数据', desc: '重新读取本地数据并重画界面', fn: () => refreshData() },
+        { icon: '⬇', name: '检查更新', desc: '拉取最新版本（改了代码后用）', fn: showUpdateSheet },
+      ],
+    },
   ];
 
   for (const g of groups) {
@@ -1389,6 +1582,52 @@ const PROFILE_LABEL = {
   hospital: '医院', dept: '科室', doctor: '医生',
   chemoCycleDays: '化疗周期', immunoCycleDays: '免疫间隔', radioTotal: '放疗次数',
 };
+
+/* ---------- 更新与刷新 ---------- */
+
+function showUpdateSheet() {
+  const body = el('div', {});
+
+  body.append(el('p', { class: 'muted' },
+    '桌面书签打开时没有地址栏，所以刷新要靠这里的按钮。'));
+
+  body.append(el('div', { class: 'card plain', style: 'margin-bottom:12px' }, [
+    el('div', { class: 'tiny', style: 'font-weight:700;margin-bottom:6px' }, '平常这样刷新'),
+    el('div', { class: 'tiny muted', style: 'line-height:1.7' },
+      '在页面上往下拉一把（像刷朋友圈那样），页面到顶部后继续往下拉，看到圆形箭头松手就行。'),
+  ]));
+
+  const actions = el('div', {});
+  actions.append(el('button', {
+    class: 'btn block primary', style: 'margin-bottom:8px',
+    onclick: async () => {
+      closeSheet();
+      await refreshData();
+    },
+  }, '刷新数据（快，不重载页面）'));
+
+  actions.append(el('button', {
+    class: 'btn block', style: 'margin-bottom:8px',
+    onclick: async () => {
+      closeSheet();
+      await forceUpdate();
+    },
+  }, '强制更新到最新版本（清缓存并重载）'));
+
+  body.append(actions);
+
+  body.append(el('div', { class: 'alert warn', style: 'margin-top:10px' }, [
+    el('div', { class: 't' }, '数据不会丢'),
+    el('div', { class: 'tiny', style: 'margin-top:4px;line-height:1.6' },
+      '上面两个按钮都不会删除你记录的数据。数据存在手机本地，强制更新只是重新下载程序文件。'),
+  ]));
+
+  openSheet({
+    title: '刷新与更新',
+    body,
+    footer: [el('button', { class: 'btn', onclick: closeSheet }, '关闭')],
+  });
+}
 
 /* ---------- 资料库 ---------- */
 
