@@ -1,5 +1,56 @@
 {
-  "generatedAt": "2026-10-25T12:07:54.148Z",
+  "generatedAt": "2026-10-25T12:15:08.651Z",
   "patient": "郑武",
-  "items": []
+  "windowDays": 30,
+  "items": [
+    {
+      "date": "2026-10-26",
+      "time": "",
+      "type": "test",
+      "title": "血常规（化疗后 D4）",
+      "place": "四川大学华西医院",
+      "daysLeft": 1
+    },
+    {
+      "date": "2026-10-30",
+      "time": "",
+      "type": "test",
+      "title": "血常规（化疗后 D8）",
+      "place": "四川大学华西医院",
+      "daysLeft": 5
+    },
+    {
+      "date": "2026-11-02",
+      "time": "",
+      "type": "test",
+      "title": "血常规 + 肝肾功能（化疗后 D11）",
+      "place": "四川大学华西医院",
+      "daysLeft": 8
+    },
+    {
+      "date": "2026-11-06",
+      "time": "",
+      "type": "test",
+      "title": "血常规 + 肝肾功能（化疗后 D15）",
+      "place": "四川大学华西医院",
+      "daysLeft": 12
+    },
+    {
+      "date": "2026-11-09",
+      "time": "",
+      "type": "test",
+      "title": "下周期前检查（血常规 + 肝肾功能 + 电解质）",
+      "place": "四川大学华西医院",
+      "daysLeft": 15
+    },
+    {
+      "date": "2026-11-12",
+      "time": "",
+      "type": "chemo",
+      "title": "化疗 第2周期（预计）",
+      "place": "四川大学华西医院",
+      "daysLeft": 18
+    }
+  ],
+  "nextBeyond": null
 }
