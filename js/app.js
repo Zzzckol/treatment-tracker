@@ -1498,6 +1498,7 @@ function pageMore() {
     {
       title: '数据安全',
       items: [
+        { icon: '⬇', name: '从链接导入数据', desc: '主屏幕打开时用它，把云端的治疗数据拉下来', fn: openImportFromLinkSheet, tone: 'blue' },
         { icon: '💾', name: '备份全部数据', desc: '导出一个文件，存到网盘或发给自己', fn: doBackup },
         { icon: '🔃', name: '从备份恢复', desc: '换手机时用', fn: doRestore },
         { icon: '🖨', name: '生成就诊一页纸', desc: '复诊时给医生看的汇总', fn: openPrintSheet },
@@ -1762,6 +1763,138 @@ function showUpdateSheet() {
     title: '刷新与更新',
     body,
     footer: [el('button', { class: 'btn', onclick: closeSheet }, '关闭')],
+  });
+}
+
+/* ---------- 从链接导入（主屏幕/独立模式用） ---------- */
+
+/**
+ * 为什么需要这个入口
+ * ------------------
+ * iOS 上「主屏幕书签」和「Safari 标签页」「微信内置浏览器」是三套
+ * 完全独立的存储空间，数据互不相通。
+ *
+ * 在微信里扫导入码，数据落进了微信的存储；
+ * 从主屏幕打开应用，读的是主屏幕那套存储，自然是空的。
+ *
+ * 所以主屏幕版本必须能自己再拉一次数据，这个面板就是干这个的。
+ */
+function openImportFromLinkSheet() {
+  const body = el('div', {});
+
+  body.append(el('div', { class: 'alert info' }, [
+    el('div', { class: 't' }, '为什么主屏幕打开是空的'),
+    el('div', { class: 'tiny', style: 'margin-top:4px;line-height:1.65' },
+      'iPhone 上，主屏幕图标、Safari、微信，各自是独立的存储空间。'
+      + '在微信里导入的数据只在微信里能看到，主屏幕这边要单独导入一次。只需做一次。'),
+  ]));
+
+  body.append(el('div', { class: 'section-title' }, '导入码'));
+  body.append(el('p', { class: 'tiny muted', style: 'margin-bottom:8px' },
+    '把导入链接里 #import= 后面那一段贴进来，或者直接粘贴完整链接。'));
+
+  // 预填已知的导入码，省得用户找
+  const knownCode = localStorage.getItem('tx-import-code') || '';
+  const inp = el('textarea', {
+    placeholder: '在这里粘贴导入链接，或 #import= 后面那一段',
+    style: 'min-height:80px;font-size:13px;font-family:ui-monospace,Menlo,monospace',
+  });
+  inp.value = knownCode;
+  body.append(inp);
+
+  const status = el('div', {});
+  body.append(status);
+
+  const parseInput = (raw) => {
+    let s = String(raw || '').trim();
+    if (!s) return null;
+    // 支持完整链接、带 # 的、纯 code
+    const hashIdx = s.indexOf('#import=');
+    if (hashIdx >= 0) s = s.slice(hashIdx + '#import='.length);
+    else if (s.startsWith('import=')) s = s.slice('import='.length);
+    s = s.split('&')[0].split('?')[0].trim();
+    return s || null;
+  };
+
+  body.append(el('div', { class: 'section-title' }, '如果还没有导入码'));
+  body.append(el('div', { class: 'card plain' }, [
+    el('div', { class: 'tiny', style: 'line-height:1.7' },
+      '用另一台设备（电脑或家人的手机）打开「郑武数据-导入二维码.png」，'
+      + '扫码后页面上会显示导入链接，复制过来粘到上面就行。'),
+  ]));
+
+  // 一键试：如果曾经扫过导入码，这里给出直接可点的完整链接
+  if (knownCode) {
+    body.append(el('div', { class: 'section-title' }, '或者直接点这个'));
+    const directUrl = location.href.split('#')[0].split('?')[0] + '#import=' + knownCode;
+    const a = el('a', {
+      href: directUrl,
+      class: 'btn block',
+      style: 'text-decoration:none;margin-bottom:10px',
+    }, '打开导入链接（自动导入）');
+    body.append(a);
+    body.append(el('div', { class: 'tiny muted', style: 'margin-bottom:4px' },
+      '点了之后会自动下载并弹出确认，确认一下就完成。'));
+  }
+
+  openSheet({
+    title: '从链接导入数据',
+    body,
+    footer: [
+      el('button', { class: 'btn', onclick: closeSheet }, '关闭'),
+      el('button', {
+        class: 'btn primary',
+        onclick: async () => {
+          const code = parseInput(inp.value);
+          status.replaceChildren();
+
+          if (!code) {
+            status.append(el('div', { class: 'alert warn' }, [
+              el('div', { class: 'tiny' }, '请先粘贴导入链接或导入码'),
+            ]));
+            return;
+          }
+
+          const parsed = parseImportHash('#import=' + code);
+          if (!parsed) {
+            status.append(el('div', { class: 'alert bad' }, [
+              el('div', { class: 't' }, '这段内容格式不对'),
+              el('div', { class: 'tiny', style: 'margin-top:4px' },
+                '导入码应该是一段很长的字符，中间有一个句点。检查是不是只复制了一部分。'),
+            ]));
+            return;
+          }
+
+          // 记住，下次不用再贴
+          localStorage.setItem('tx-import-code', code);
+
+          status.append(el('div', { class: 'alert info' }, [
+            el('div', { class: 'tiny' }, '正在下载…'),
+          ]));
+
+          try {
+            const base = location.href.replace(/[^/]*$/, '').split('?')[0].split('#')[0];
+            const bundle = await fetchEncryptedBundle(parsed, base);
+            const counts = {
+              labs: bundle.labs?.length || 0,
+              appointments: bundle.appointments?.length || 0,
+              docs: bundle.docs?.length || 0,
+            };
+            const c = await applyBundle(bundle);
+            await reload();
+            closeSheet();
+            render();
+            toast(`导入完成：${c.labs} 次化验、${c.appointments} 条日程、${c.docs} 份资料`, 3500);
+          } catch (e) {
+            status.replaceChildren();
+            status.append(el('div', { class: 'alert bad' }, [
+              el('div', { class: 't' }, '导入失败'),
+              el('div', { class: 'tiny', style: 'margin-top:4px;line-height:1.6' }, e.message),
+            ]));
+          }
+        },
+      }, '开始导入'),
+    ],
   });
 }
 
