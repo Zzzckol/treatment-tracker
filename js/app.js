@@ -2154,8 +2154,37 @@ function showSymptomAdvice(adv) {
 function openShareSheet() {
   const body = el('div', {});
 
-  // ===== 核心：共享码 =====
+  // 先用 S 里的快照快速判断，同时异步确认一次真实配置
+  const cfgReady = !!(S.profile.ghToken && S.profile.ghRepo);
   const cache = { code: localStorage.getItem('tx-share-code') || '' };
+
+  if (!cfgReady) {
+    // 可能只是内存没刷新，先从库里确认
+    db.getProfile().then((fresh) => {
+      S.profile = fresh;
+      if (fresh.ghToken && fresh.ghRepo) {
+        closeSheet();
+        openShareSheet();
+      }
+    }).catch(() => {});
+
+    body.append(el('div', { class: 'section-title' }, '共享数据'));
+    body.append(el('div', { class: 'alert warn' }, [
+      el('div', { class: 't' }, '需要先配两个东西'),
+      el('div', { class: 'tiny', style: 'margin-top:4px;line-height:1.7' },
+        '共享要用 GitHub 仓库当中转站，需要 GitHub Token 和仓库名。这两个在配微信推送时填过，直接去那里填就行。'),
+    ]));
+    body.append(el('button', {
+      class: 'btn block primary', style: 'margin-bottom:12px',
+      onclick: () => { closeSheet(); openPushSheet(); },
+    }, '去配置（GitHub Token 和仓库）'));
+    openSheet({
+      title: '共享数据',
+      body,
+      footer: [el('button', { class: 'btn', onclick: closeSheet }, '关闭')],
+    });
+    return;
+  }
 
   body.append(el('div', { class: 'section-title' }, '共享数据（推荐）'));
 
@@ -2196,23 +2225,15 @@ function openShareSheet() {
       },
     }, '停用共享'));
   } else {
-    body.append(el('div', { class: 'alert warn' }, [
-      el('div', { class: 't' }, '还不能用'),
+    body.append(el('div', { class: 'alert info' }, [
+      el('div', { class: 't' }, '还没生成共享码'),
       el('div', { class: 'tiny', style: 'margin-top:4px;line-height:1.7' },
-        '共享需要先配好 GitHub Token 和仓库（配微信推送时填过的那两个）。'
-        + '去「更多 → 微信提醒推送」填好，再回来点下面的按钮。'),
+        '点下面的按钮生成一个，发给家人后他们就能看到你的记录。'),
     ]));
 
     body.append(el('button', {
       class: 'btn block primary', style: 'margin-bottom:12px',
-      onclick: () => {
-        if (!S.profile.ghToken || !S.profile.ghRepo) {
-          closeSheet();
-          openPushSheet();
-          return;
-        }
-        doPushShared(cache, body);
-      },
+      onclick: () => doPushShared(cache, body),
     }, '开启共享（生成共享码）'));
   }
 
