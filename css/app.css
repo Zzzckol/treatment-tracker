@@ -1077,6 +1077,102 @@ hr {
   flex-shrink: 0;
 }
 
+/* ---------- 下拉刷新指示器 ---------- */
+
+#ptr {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -48px);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 2px 10px rgba(15, 36, 48, .16);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 55;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s, transform .18s;
+}
+#ptr .spin {
+  font-size: 15px;
+  color: var(--ink-3);
+  transition: transform .18s, color .18s;
+  line-height: 1;
+}
+#ptr.ready {
+  box-shadow: 0 2px 12px rgba(10, 168, 163, .34);
+}
+#ptr.ready .spin {
+  color: var(--brand);
+  font-weight: 700;
+}
+#ptr.loading .spin {
+  color: var(--brand);
+  animation: ptr-spin .8s linear infinite;
+}
+@keyframes ptr-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ---------- 新版本提示条 ---------- */
+
+#update-banner {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--tabbar-h) + var(--safe-b) + 12px);
+  transform: translateX(-50%);
+  z-index: 58;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--ink-1);
+  color: #fff;
+  padding: 9px 10px 9px 16px;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-xs);
+  box-shadow: 0 4px 18px rgba(15, 36, 48, .26);
+  max-width: calc(100vw - 32px);
+  animation: banner-in .26s cubic-bezier(.32, .72, 0, 1);
+}
+@keyframes banner-in {
+  from { opacity: 0; transform: translate(-50%, 10px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+#update-banner .txt {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#update-banner button {
+  appearance: none;
+  border: 0;
+  font-family: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  min-height: 30px;
+  padding: 0 14px;
+  background: var(--brand);
+  color: #fff;
+  flex-shrink: 0;
+}
+#update-banner button.x {
+  background: transparent;
+  color: rgba(255, 255, 255, .65);
+  padding: 0 6px;
+  font-size: 18px;
+  font-weight: 400;
+  min-width: 30px;
+}
+
 /* ---------- 无障碍与偏好 ---------- */
 
 @media (prefers-reduced-motion: reduce) {
