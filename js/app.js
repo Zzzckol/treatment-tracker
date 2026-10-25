@@ -537,7 +537,7 @@ function openApptSheet(existing) {
   }
   body.append(field('类型', typeSeg));
 
-  const fTitle = el('input', { type: 'text', value: a.title || '', placeholder: '例如：化疗 第3周期 D1' });
+  const fTitle = el('input', { type: 'text', value: a.title || '', placeholder: '例如：化疗 第 3 周期 D1' });
   if (!fTitle.value) fTitle.value = typeMeta(a.type).name;
   body.append(field('名称', fTitle));
 
@@ -855,7 +855,7 @@ function openLabSheet() {
   buildList();
   body.append(listWrap);
 
-  const fNote = el('textarea', { placeholder: '比如：第3周期后、医生说要减量' });
+  const fNote = el('textarea', { placeholder: '比如：第 3 周期后、医生说要减量' });
   body.append(field('备注（可写化疗到第几次）', fNote));
 
   openSheet({
@@ -1243,10 +1243,15 @@ function openImportSheet() {
   // 第二步：粘贴结果
   body.append(el('div', { class: 'section-title' }, '第 2 步 · 把 AI 给出的结果粘回来'));
 
+  body.append(el('div', { class: 'alert warn compact' }, [
+    el('span', { class: 'ico' }, '✂'),
+    el('span', { class: 'txt' }, '长内容在手机上可能复制不全。如果报错说不完整，先粘到备忘录里再复制过来会更稳。'),
+  ]));
+
   let parsed = null;
   const ta = el('textarea', {
-    placeholder: '把 AI 返回的 JSON 整段粘贴到这里…',
-    style: 'min-height:140px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px',
+    placeholder: '把 AI 返回的内容整段粘贴到这里。带不带 ``` 包裹都行，前后有说明文字也能自动清理。',
+    style: 'min-height:150px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px',
   });
   body.append(field('AI 返回的内容', ta));
 
@@ -1259,10 +1264,39 @@ function openImportSheet() {
     const res = validateBundle(ta.value);
     parsed = res.ok ? res.data : null;
 
+    // 修复过的，先醒目提示
+    if (res.ok && res.warnings.some((w) => w.includes('已自动修复'))) {
+      preview.append(el('div', { class: 'alert warn' }, [
+        el('div', { class: 't' }, '内容不完整，已自动修复'),
+        el('div', { class: 'tiny', style: 'margin-top:4px' },
+          '识别到的部分已经抢救出来了，但可能漏了后半段。请对照原单核对下面的明细，确认无误再导入。'),
+      ]));
+    }
+
     if (res.errors.length) {
-      const box = el('div', { class: 'alert bad' }, [el('div', { class: 't' }, '有问题')]);
-      for (const e of res.errors) box.append(el('div', { text: '· ' + e }));
+      const box = el('div', { class: 'alert bad' }, [el('div', { class: 't' }, '这段内容读不了')]);
+      for (const e of res.errors) {
+        box.append(el('div', { class: 'tiny', style: 'margin-top:4px;line-height:1.6', text: e }));
+      }
       preview.append(box);
+
+      // 给一个直接可用的补救入口
+      const fix = el('div', { class: 'card plain', style: 'margin-top:10px' });
+      fix.append(el('div', { class: 'tiny', style: 'font-weight:700;margin-bottom:6px' }, '还可以这样'));
+      fix.append(el('button', {
+        class: 'btn block sm', style: 'margin-bottom:8px',
+        onclick: () => {
+          const txt = ta.value;
+          const cut = txt.slice(0, 300);
+          // 帮用户把已有内容清空重来
+          ta.value = '';
+          toast('已清空，可以重新粘贴了');
+          ta.focus();
+        },
+      }, '清空重新粘贴'));
+      fix.append(el('div', { class: 'tiny muted' },
+        '或者让 AI 少输出一点：跟它说「分两段发，先发基本情况和化验单」。'));
+      preview.append(fix);
       return;
     }
 
@@ -1400,7 +1434,7 @@ function openDocSheet(existing) {
   for (const k of DOC_KINDS) sel.append(el('option', { value: k, selected: k === d.kind ? true : null }, k));
   body.append(field('类型', sel));
 
-  const fTitle = el('input', { type: 'text', value: d.title || '', placeholder: '例如：第3周期后 胸腹部CT' });
+  const fTitle = el('input', { type: 'text', value: d.title || '', placeholder: '例如：第 3 周期后 胸腹部 CT' });
   body.append(field('名称', fTitle));
 
   const fHosp = el('input', { type: 'text', value: d.hospital || '' });
@@ -1596,7 +1630,7 @@ function openProfileSheet() {
   const fDiag = el('input', { type: 'text', value: p.diagnosis || '', placeholder: '例如：肺腺癌' });
   body.append(field('诊断', fDiag));
 
-  const fStage = el('input', { type: 'text', value: p.stage || '', placeholder: '例如：IIIB / IV期' });
+  const fStage = el('input', { type: 'text', value: p.stage || '', placeholder: '例如：IIIB / IV 期' });
   body.append(field('分期', fStage));
 
   const fHosp = el('input', { type: 'text', value: p.hospital || '', placeholder: '主要就诊医院' });
@@ -1836,7 +1870,7 @@ function openPrintSheet() {
     title: '就诊一页纸',
     body,
     footer: [
-      el('button', { class: 'btn', onclick: () => window.print() }, '打印/存PDF'),
+      el('button', { class: 'btn', onclick: () => window.print() }, '打印/存 PDF'),
       el('button', { class: 'btn', onclick: closeSheet }, '关闭'),
     ],
   });
