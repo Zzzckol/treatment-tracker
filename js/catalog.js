@@ -21,7 +21,15 @@ export const LAB_PANELS = [
       { code: 'LYMPH', name: '淋巴细胞绝对值', unit: '×10⁹/L', lo: 1.1, hi: 3.2 },
       { code: 'MONO', name: '单核细胞绝对值', unit: '×10⁹/L', lo: 0.1, hi: 0.6 },
       { code: 'RBC', name: '红细胞', unit: '×10¹²/L', lo: 4.3, hi: 5.8 },
-      { code: 'HCT', name: '红细胞压积', unit: '%', lo: 40, hi: 50 },
+      // 红细胞压积：有的医院报 %（40-50），有的报 L/L 比值（0.40-0.50）
+      // 两种都要能正确判断，否则 0.46 会被误判成"偏低"
+      {
+        code: 'HCT', name: '红细胞压积', unit: '%', lo: 40, hi: 50,
+        altUnit: { unit: 'L/L', lo: 0.40, hi: 0.50, factor: 100 },
+      },
+      { code: 'MCV', name: '平均红细胞体积', unit: 'fL', lo: 82, hi: 100 },
+      { code: 'MCH', name: '平均血红蛋白量', unit: 'pg', lo: 27, hi: 34 },
+      { code: 'MCHC', name: '平均血红蛋白浓度', unit: 'g/L', lo: 316, hi: 354 },
     ],
   },
   {
@@ -73,6 +81,29 @@ export const LAB_PANELS = [
     ],
   },
   {
+    id: 'lipid',
+    name: '血脂',
+    hint: '化疗期间可能升高，高血脂本身要管，尤其有心血管风险的',
+    items: [
+      { code: 'TG', name: '甘油三酯', unit: 'mmol/L', lo: 0, hi: 1.70, note: '超过 1.70 偏高' },
+      { code: 'TC', name: '总胆固醇', unit: 'mmol/L', lo: 0, hi: 5.20 },
+      { code: 'LDL', name: '低密度脂蛋白胆固醇', unit: 'mmol/L', lo: 0, hi: 3.40, note: '这个俗称"坏胆固醇"，偏高要关注' },
+      { code: 'HDL', name: '高密度脂蛋白胆固醇', unit: 'mmol/L', lo: 1.00, hi: 2.50, note: '这个俗称"好胆固醇"，偏低不好' },
+    ],
+  },
+  {
+    id: 'cardiac',
+    name: '心肌标志物',
+    hint: '部分化疗药（如蒽环类）有心脏毒性，用前用后要查',
+    items: [
+      { code: 'MYO', name: '肌红蛋白', unit: 'ng/mL', lo: 0, hi: 72 },
+      { code: 'CKMB', name: '肌酸激酶同工酶质量', unit: 'ng/mL', lo: 0, hi: 6.22 },
+      { code: 'HSTNT', name: '高敏肌钙蛋白T', unit: 'ng/L', lo: 0, hi: 14 },
+      { code: 'CK', name: '肌酸激酶', unit: 'U/L', lo: 40, hi: 200 },
+      { code: 'LDH', name: '乳酸脱氢酶', unit: 'U/L', lo: 120, hi: 250 },
+    ],
+  },
+  {
     id: 'thyroid',
     name: '甲状腺功能',
     hint: '免疫治疗最常见的内分泌副作用，通常 6-8 周查一次',
@@ -113,9 +144,11 @@ export const LAB_PANELS = [
     name: '凝血功能',
     hint: '化疗期间偶尔要查',
     items: [
-      { code: 'PT', name: '凝血酶原时间', unit: 's', lo: 11, hi: 14.5 },
+      // PT/APTT 各医院参考区间差异较大（如华西 9.6-12.8s，有些医院 11-14.5s）
+      // 这里取较宽的范围，避免把医院间的方法学差异误判成异常
+      { code: 'PT', name: '凝血酶原时间', unit: 's', lo: 9.5, hi: 14.5, note: '不同医院参考区间差异大，以自己的化验单为准' },
       { code: 'INR', name: 'INR', unit: '', lo: 0.8, hi: 1.2 },
-      { code: 'APTT', name: '活化部分凝血活酶时间', unit: 's', lo: 28, hi: 45 },
+      { code: 'APTT', name: '活化部分凝血活酶时间', unit: 's', lo: 24, hi: 40, note: '各医院区间有差异' },
       { code: 'FIB', name: '纤维蛋白原', unit: 'g/L', lo: 2, hi: 4 },
       { code: 'DD', name: 'D-二聚体', unit: 'mg/L', lo: 0, hi: 0.55 },
     ],
@@ -137,14 +170,61 @@ export const LAB_INDEX = (() => {
   return m;
 })();
 
-/** 判断一个值相对参考区间的位置 */
+/**
+ * 判断一个值相对参考区间的位置
+ *
+ * 有些项目不同医院用不同单位（如红细胞压积 % 与 L/L），
+ * 这里会先做单位识别，避免把 0.46 L/L 当成 0.46% 误判成异常。
+ */
 export function judge(code, value) {
   const it = LAB_INDEX.get(code);
   if (!it || value === '' || value == null || Number.isNaN(Number(value))) return null;
-  const v = Number(value);
-  if (v < it.lo) return 'low';
-  if (v > it.hi) return 'high';
+  let v = Number(value);
+  let lo = it.lo;
+  let hi = it.hi;
+
+  // 单位识别：数值明显落在备用单位区间时，换算到主单位
+  if (it.altUnit) {
+    const a = it.altUnit;
+    // 主单位下限的 1/10 以下，说明用的是小单位（如 L/L 的 0.46 vs % 的 40-50）
+    const useAlt = v <= lo / 10 && v >= a.lo * 0.5;
+    if (useAlt) {
+      v = v * a.factor;
+      lo = it.lo;
+      hi = it.hi;
+    }
+  }
+
+  if (v < lo) return 'low';
+  if (v > hi) return 'high';
   return 'ok';
+}
+
+/** 把值换算成主单位（用于显示和存库前统一） */
+export function normalizeUnit(code, value) {
+  const it = LAB_INDEX.get(code);
+  if (!it || !it.altUnit) return value;
+  const v = Number(value);
+  if (!Number.isFinite(v)) return value;
+  if (v <= it.lo / 10 && v >= it.altUnit.lo * 0.5) return v * it.altUnit.factor;
+  return v;
+}
+
+/**
+ * 供显示用：返回实际应该展示的数值、单位和参考区间
+ * 比如 HCT 存的是 0.46，就要显示成 "0.46 L/L（0.40-0.50）"，
+ * 而不是 "0.46 %（40-50）" 这种自相矛盾的显示
+ */
+export function displayValue(code, value) {
+  const it = LAB_INDEX.get(code);
+  if (!it) return { value, unit: '', lo: null, hi: null };
+  const v = Number(value);
+  if (!Number.isFinite(v)) return { value, unit: it.unit, lo: it.lo, hi: it.hi };
+
+  if (it.altUnit && v <= it.lo / 10 && v >= it.altUnit.lo * 0.5) {
+    return { value: v, unit: it.altUnit.unit, lo: it.altUnit.lo, hi: it.altUnit.hi };
+  }
+  return { value: v, unit: it.unit, lo: it.lo, hi: it.hi };
 }
 
 /* ---------- 症状目录 ---------- */
