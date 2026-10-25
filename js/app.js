@@ -554,7 +554,22 @@ function pageToday() {
       el('div', { class: 't' }, '先花两分钟填一下基本信息'),
       el('div', {}, '填完之后，日程可以自动往后排，指标也能按他的情况提示异常。'),
     ]));
-    v.append(el('button', { class: 'btn primary block', onclick: openProfileSheet }, '去填基本信息'));
+    v.append(el('button', { class: 'btn primary block', style: 'margin-bottom:8px', onclick: openProfileSheet }, '去填基本信息'));
+
+    // 空状态下也要能直接记事：很多人先想记日程，再回头填资料
+    v.append(el('button', {
+      class: 'btn block', style: 'margin-bottom:8px',
+      onclick: () => openQuickApptSheet(),
+    }, '不想填资料？先记一件事'));
+
+    // 已经记了数据但没填资料的，给个提醒
+    const hasAny = S.appts.length || S.labs.length || S.syms.length || S.docs.length;
+    if (hasAny) {
+      v.append(el('div', {
+        class: 'tiny', style: 'text-align:center;color:var(--ink-3);margin-bottom:10px;line-height:1.6',
+      }, `已经记了 ${S.appts.length + S.labs.length + S.syms.length + S.docs.length} 条内容，填上基本信息才能用自动提醒和建议`));
+    }
+
     v.append(monthlySummary());
     return;
   }
