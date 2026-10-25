@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0EA5A0">
+<title>怎么用这个记录本</title>
+<style>
+  :root {
+    --brand: #0aa8a3; --brand-deep: #077370;
+    --ink: #0f2430; --ink2: #3d5566; --ink3: #6b8296;
+    --bg: #f2f7f9; --line: #d3e2ea; --warn: #e08a1e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 18px 48px;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--ink);
+    font-size: 17px; line-height: 1.75;
+    -webkit-text-size-adjust: 100%;
+  }
+  h1 { font-size: 25px; margin: 0 0 8px; letter-spacing: -.02em; }
+  .lead { font-size: 15px; color: var(--ink3); margin-bottom: 26px; line-height: 1.7; }
+  .card {
+    background: #fff; border-radius: 16px; padding: 20px;
+    margin-bottom: 16px; box-shadow: 0 2px 10px rgba(15,36,48,.05);
+  }
+  .step { display: flex; gap: 14px; margin-bottom: 26px; }
+  .step:last-child { margin-bottom: 0; }
+  .num {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: var(--brand); color: #fff;
+    font-size: 17px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 1px;
+  }
+  .body { flex: 1; min-width: 0; }
+  .t { font-weight: 700; font-size: 19px; margin-bottom: 6px; line-height: 1.4; }
+  .d { font-size: 16px; color: var(--ink2); line-height: 1.8; }
+  .d b { color: var(--ink); font-weight: 700; }
+  .hl { color: var(--brand-deep); font-weight: 700; }
+  .warn {
+    background: #fdf4e4; border: 1px solid #f0d6a8; color: #8d5a10;
+    border-radius: 12px; padding: 16px 18px; font-size: 15px; line-height: 1.8;
+    margin: 18px 0;
+  }
+  .warn b { display: block; margin-bottom: 6px; font-size: 16px; }
+  .tip {
+    background: #e5f8ee; border: 1px solid #b8e6cc; color: #0b7a48;
+    border-radius: 12px; padding: 16px 18px; font-size: 15px; line-height: 1.8;
+    margin: 16px 0;
+  }
+  ul { margin: 8px 0; padding-left: 22px; }
+  li { margin-bottom: 8px; }
+  .big-btn {
+    display: block; width: 100%; min-height: 58px;
+    border-radius: 14px; border: 0;
+    background: var(--brand); color: #fff;
+    font-size: 19px; font-weight: 700; font-family: inherit;
+    margin: 24px 0 14px; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .big-btn:active { opacity: .88; }
+  .url-box {
+    background: #f8fbfc; border: 1px solid var(--line);
+    border-radius: 10px; padding: 14px;
+    font-size: 13px; font-family: ui-monospace, Menlo, monospace;
+    word-break: break-all; line-height: 1.7; margin: 10px 0;
+    user-select: all;
+  }
+  .footer {
+    text-align: center; font-size: 14px; color: var(--ink3);
+    margin-top: 30px; line-height: 1.8;
+  }
+  .divider { height: 1px; background: var(--line); margin: 22px 0; }
+</style>
+</head>
+<body>
+
+<h1>怎么用这个记录本</h1>
+<div class="lead">装一次，以后天天用。不用记密码，不用打字。</div>
+
+<div class="card">
+  <div class="step">
+    <div class="num">1</div>
+    <div class="body">
+      <div class="t">先装到手机桌面</div>
+      <div class="d">
+        在手机浏览器打开下面这个网址。<br>
+        <b>不要用微信打开</b>，用 Chrome 或者手机自带的浏览器。
+      </div>
+      <div class="url-box">https://zzzckol.github.io/treatment-tracker/</div>
+      <div class="d">
+        打开后点浏览器右上角的菜单，找 <b>「安装应用」</b> 或 <b>「添加到桌面」</b>。<br>
+        桌面上出现一个图标，以后就点它。
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="step">
+    <div class="num">2</div>
+    <div class="body">
+      <div class="t">每天记一下身体感觉</div>
+      <div class="d">
+        点桌面图标打开，点 <b>「记录今天」</b>。<br>
+        然后就是点几下：
+      </div>
+      <ul class="d">
+        <li>今天有没有恶心 → 点「无 / 轻 / 中 / 重」</li>
+        <li>累不累 → 点一下</li>
+        <li>有没有哪里疼 → 点一下</li>
+        <li>体温多少 → 往上填个数</li>
+      </ul>
+      <div class="d">
+        <b>30 秒就完了。</b>不用写字。
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="step">
+    <div class="num">3</div>
+    <div class="body">
+      <div class="t">它会告诉你该怎么办</div>
+      <div class="d">
+        记完保存后，会告诉你哪些要注意。<br>
+        比如发烧了，会提醒你 <span class="hl">今天就联系医生</span>；<br>
+        只是有点恶心，会告诉你 <span class="hl">吃点清淡的、少量多餐</span>。
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="step">
+    <div class="num">4</div>
+    <div class="body">
+      <div class="t">看病的时候给医生看</div>
+      <div class="d">
+        去医院前，点 <b>「更多」</b> → <b>「生成就诊一页纸」</b>。<br>
+        上面写着你最近哪里不舒服、指标有什么变化。<br>
+        医生问「这周怎么样」，直接给他看这个。
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="warn">
+  <b>三件要注意的事</b>
+  一、只在桌面上那个图标里记。<br>
+  微信里打开记的东西，关掉就找不到了。<br><br>
+  二、不要清理浏览器的「网站数据」。<br>
+  清了就全没了。<br><br>
+  三、每周让你孩子帮你备份一次。<br>
+  「更多」→「备份全部数据」，存起来。
+</div>
+
+<div class="tip">
+  <b>它不会做的事</b>
+  不诊断、不开药、不替代医生。<br>
+  它只是帮你把身体的变化记下来，提醒你什么时候该问医生。<br>
+  拿不准的时候，永远先问医生。
+</div>
+
+<div class="divider"></div>
+
+<div class="footer">
+  这个记录本只在你手机上，别人看不到。<br>
+  记的东西越多，给医生看的时候越有用。
+</div>
+
+</body>
+</html>
