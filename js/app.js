@@ -18,6 +18,9 @@ import {
 } from './plan.js';
 import { buildExtractPrompt, validateBundle, applyBundle } from './import.js';
 import { parseImportHash, fetchEncryptedBundle } from './linkimport.js';
+import {
+  adviseLab, adviseSymptoms, summarizeAdvice, LEVEL_META,
+} from './advice.js';
 
 /* ==========================================================
    状态
@@ -431,6 +434,108 @@ function render() {
    页面一：今天
    ========================================================== */
 
+/** 取某个化验项目在指定日期之前最近一次的值（用于趋势判断） */
+function prevValueOf(code, beforeDate) {
+  let best = null;
+  let bestDate = '';
+  for (const row of S.labs) {
+    if (row.date >= beforeDate) continue;
+    const v = row.values?.[code];
+    if (v === '' || v == null || Number.isNaN(Number(v))) continue;
+    if (row.date > bestDate) {
+      bestDate = row.date;
+      best = Number(v);
+    }
+  }
+  return best;
+}
+
+/** 汇总当前所有需要行动的建议（首页顶部用） */
+function currentAdviceSummary() {
+  const abnormal = latestAbnormal();
+  const labAdvices = [];
+  for (const a of abnormal) {
+    const adv = adviseLab(a.code, a.raw ?? a.value, { lo: a.lo, hi: a.hi }, prevValueOf(a.code, a.date));
+    if (adv) labAdvices.push({ ...a, advice: adv, action: adv.level });
+  }
+
+  // 最近一次症状记录
+  const t = today();
+  const recent = S.syms
+    .filter((r) => daysBetween(r.date, t) >= 0 && daysBetween(r.date, t) <= 3)
+    .sort((x, y) => y.date.localeCompare(x.date))[0];
+  const symAdv = recent ? adviseSymptoms(recent) : null;
+
+  return summarizeAdvice(labAdvices, symAdv);
+}
+
+/** 统一行动建议面板 */
+function openAdviceSheet(adv) {
+  const body = el('div', {});
+
+  const group = (title, list, tone) => {
+    if (!list.length) return;
+    body.append(el('div', { class: 'section-title' }, title));
+    for (const it of list) {
+      const box = el('div', {
+        class: 'card',
+        style: 'padding:12px 14px;margin-bottom:8px;'
+          + (tone === 'bad' ? 'border-left:3px solid var(--bad)' : tone === 'warn' ? 'border-left:3px solid var(--warn)' : 'border-left:3px solid var(--line-2)'),
+      });
+      const head = el('div', { style: 'display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin-bottom:4px' });
+      head.append(el('div', { style: 'font-size:var(--fs-sm);font-weight:700;flex:1;min-width:0' },
+        it.name + (it.from === 'symptom' ? '' : '')));
+      if (it.value != null) {
+        head.append(el('div', {
+          style: 'font-size:var(--fs-sm);font-weight:700;font-variant-numeric:tabular-nums;color:' + (tone === 'bad' ? 'var(--bad)' : tone === 'warn' ? 'var(--warn)' : 'var(--ink-2)'),
+        }, `${fmtNum(it.value)}${it.unit ? ' ' + it.unit : ''}`));
+      }
+      box.append(head);
+      if (it.advice?.why || it.why) {
+        box.append(el('div', { class: 'tiny', style: 'color:var(--ink-4);margin-bottom:5px' }, it.advice?.why || it.why));
+      }
+      box.append(el('div', { style: 'font-size:var(--fs-xs);line-height:1.65;color:var(--ink-2)' },
+        it.advice?.text || it.text || ''));
+      body.append(box);
+    }
+  };
+
+  group('今天就联系医生', adv.urgent, 'bad');
+  group('这次就诊主动问医生', adv.ask, 'warn');
+  group('记录观察，按计划复查', adv.watch, 'grey');
+
+  if (!adv.urgent.length && !adv.ask.length && !adv.watch.length) {
+    body.append(el('div', { class: 'empty' }, [
+      el('div', { class: 'big' }, '✓'),
+      el('div', {}, '目前没有需要特别处理的异常'),
+    ]));
+  }
+
+  body.append(el('div', { class: 'alert info', style: 'margin-top:14px' }, [
+    el('div', { class: 't' }, '这些建议怎么来的'),
+    el('div', { class: 'tiny', style: 'margin-top:3px;line-height:1.7' },
+      '按化验偏离参考值的程度、以及你记录的症状等级给的，参考了肿瘤治疗常见不良反应的分级思路。'
+      + '它帮你判断「要不要打电话给医生」，但不能替代医生的判断。'
+      + '拿不准的时候，宁可多问一次。'),
+  ]));
+
+  openSheet({
+    title: '现在该做什么',
+    body,
+    footer: [
+      el('button', { class: 'btn', onclick: closeSheet }, '知道了'),
+      el('button', {
+        class: 'btn primary',
+        onclick: () => {
+          closeSheet();
+          if (S.profile.doctorPhone) location.href = 'tel:' + S.profile.doctorPhone;
+          else toast('还没填医生电话，去「更多 → 患者信息」补上');
+        },
+      }, S.profile.doctorPhone ? '打给医生' : '联系医生'),
+    ],
+  });
+}
+
 function pageToday() {
   const t = today();
   const v = view();
@@ -450,6 +555,24 @@ function pageToday() {
     { label: '记录今天', fn: () => openSymSheet(), primary: true },
     { label: '加日程', fn: () => openApptSheet() },
   ]));
+
+  // 统一行动建议：把化验异常和症状合成一个「今天该做什么」的结论
+  const adv = currentAdviceSummary();
+  if (adv.urgent.length || adv.ask.length) {
+    const isUrgent = adv.urgent.length > 0;
+    const bar = el('button', {
+      class: 'alert ' + (isUrgent ? 'bad' : 'warn') + ' compact',
+      style: 'width:100%;text-align:left;font-family:inherit;cursor:pointer;border-width:1px',
+      onclick: () => openAdviceSheet(adv),
+    });
+    bar.append(el('span', { class: 'ico' }, isUrgent ? '!' : '?'));
+    bar.append(el('span', { class: 'txt' },
+      isUrgent
+        ? `${adv.urgent.length} 项建议今天就联系医生`
+        : `${adv.ask.length} 项建议门诊时问医生`));
+    bar.append(el('span', { class: 'chev', style: 'flex-shrink:0;font-size:15px;opacity:.6' }, '›'));
+    v.append(bar);
+  }
 
   // 红线提示：最近 3 天的记录
   // 设计：默认折成一行紧凑条，点开才展开详情 —— 避免首屏被红框吃掉
@@ -597,20 +720,63 @@ function pageToday() {
       el('h2', {}, '最近化验有异常'),
       el('span', { class: 'hint' }, abnormal[0].date ? fmtMD(abnormal[0].date) : ''),
     ]));
-    for (const a of abnormal.slice(0, 6)) {
-      const row = el('div', { class: 'labrow' });
-      row.append(el('div', {}, [
-        el('div', { class: 'nm' }, a.name),
-        el('div', { class: 'rf' }, `参考 ${fmtNum(a.lo)}–${fmtNum(a.hi)}`),
-      ]));
-      row.append(el('div', { class: 'val ' + a.flag }, [
-        document.createTextNode(fmtNum(a.value)),
-        el('span', { class: 'u' }, a.unit || ''),
-      ]));
-      row.append(el('div', { class: 'arrow' }, a.flag === 'high' ? '偏高' : '偏低'));
-      c.append(row);
+
+    // 顶部分级汇总：一眼看出要不要行动
+    const adviced = abnormal.map((a) => ({
+      ...a,
+      advice: adviseLab(a.code, a.raw ?? a.value, { lo: a.lo, hi: a.hi }, prevValueOf(a.code, a.date)),
+    })).filter((a) => a.advice);
+
+    const urgentN = adviced.filter((x) => x.advice.level === 'urgent').length;
+    const askN = adviced.filter((x) => x.advice.level === 'ask').length;
+
+    if (urgentN || askN) {
+      const summary = el('div', {
+        class: 'alert ' + (urgentN ? 'bad' : 'warn'),
+        style: 'margin-bottom:12px',
+      });
+      summary.append(el('div', { class: 't' },
+        urgentN ? `${urgentN} 项建议尽快联系医生` : `${askN} 项建议门诊时问医生`));
+      summary.append(el('div', { class: 'tiny', style: 'margin-top:3px' },
+        urgentN ? '具体是哪几项、该怎么办，看下面标注。' : '下次门诊主动提，不用专门跑一趟。'));
+      c.append(summary);
     }
-    c.append(el('button', { class: 'btn block', style: 'margin-top:8px', onclick: () => { S.page = 'labs'; location.hash = 'labs'; render(); } }, '看完整趋势'));
+
+    for (const a of adviced.slice(0, 8)) {
+      const box = el('div', { style: 'padding:10px 0;border-bottom:1px solid var(--line)' });
+
+      // 第一行：名称 + 数值 + 建议等级
+      const head = el('div', { style: 'display:flex;align-items:baseline;gap:8px;flex-wrap:wrap' });
+      head.append(el('div', { style: 'font-size:var(--fs-sm);font-weight:600;flex:1;min-width:0' }, a.name));
+      head.append(el('div', {
+        class: 'val ' + a.flag,
+        style: 'font-size:var(--fs-base);font-weight:700;font-variant-numeric:tabular-nums',
+      }, `${fmtNum(a.value)}${a.unit ? ' ' + a.unit : ''}`));
+      const meta = LEVEL_META[a.advice.level] || LEVEL_META.watch;
+      head.append(el('span', { class: 'tag ' + meta.cls, style: 'font-size:var(--fs-2xs)' }, meta.short));
+      box.append(head);
+
+      // 第二行：参考区间
+      box.append(el('div', { class: 'tiny', style: 'color:var(--ink-4);margin-top:2px' },
+        `参考 ${fmtNum(a.lo)}–${fmtNum(a.hi)} · ${a.advice.why}`));
+
+      // 第三行：该怎么办
+      const tip = el('div', {
+        style: `font-size:var(--fs-xs);line-height:1.65;margin-top:6px;padding:8px 10px;border-radius:8px;`
+          + (a.advice.level === 'urgent'
+            ? 'background:var(--bad-tint);color:#a8322a'
+            : a.advice.level === 'ask'
+              ? 'background:var(--warn-tint);color:#8d5a10'
+              : 'background:var(--surface-2);color:var(--ink-2)'),
+      });
+      tip.append(el('span', { style: 'font-weight:700' }, meta.label + '：'));
+      tip.append(document.createTextNode(a.advice.text));
+      box.append(tip);
+
+      c.append(box);
+    }
+
+    c.append(el('button', { class: 'btn block', style: 'margin-top:10px', onclick: () => { S.page = 'labs'; location.hash = 'labs'; render(); } }, '看完整趋势'));
     v.append(c);
   }
 
@@ -1459,8 +1625,17 @@ function openSymSheet(existing) {
             note: fNote.value.trim(),
           };
           await db.put('symptoms', out);
-          await reload(); closeSheet(); render();
-          toast('已保存');
+          await reload();
+          closeSheet();
+          render();
+
+          // 保存后立刻给建议：记录本身没意义，知道要做什么才有意义
+          const adv = adviseSymptoms(out);
+          if (adv.items.length) {
+            setTimeout(() => showSymptomAdvice(adv), 260);
+          } else {
+            toast('已保存');
+          }
         },
       }, '保存'),
     ],
@@ -1507,6 +1682,7 @@ function pageMore() {
     {
       title: '页面与更新',
       items: [
+        { icon: '🔗', name: '分享给家人使用', desc: '让对方自己记录身体感受', fn: openShareSheet, tone: 'blue' },
         { icon: '↻', name: '刷新数据', desc: '重新读取本地数据并重画界面', fn: () => refreshData() },
         { icon: '⬇', name: '检查更新', desc: '拉取最新版本（改了代码后用）', fn: showUpdateSheet },
       ],
@@ -1895,6 +2071,184 @@ function openImportFromLinkSheet() {
         },
       }, '开始导入'),
     ],
+  });
+}
+
+/** 症状记录保存后，直接告诉用户该做什么 */
+function showSymptomAdvice(adv) {
+  const body = el('div', {});
+
+  const tone = adv.overall === 'urgent' ? 'bad' : adv.overall === 'ask' ? 'warn' : 'info';
+  const title = adv.overall === 'urgent'
+    ? '这些情况今天就联系医生'
+    : adv.overall === 'ask'
+      ? '这些情况下次就诊要跟医生说'
+      : '这样处理就行';
+
+  body.append(el('div', { class: 'alert ' + tone }, [
+    el('div', { class: 't' }, title),
+    el('div', { class: 'tiny', style: 'margin-top:3px' },
+      adv.overall === 'urgent'
+        ? '不是要吓你，只是这类情况不建议拖到下次门诊。'
+        : adv.overall === 'ask'
+          ? '记录下来，门诊时主动提，不用专门跑一趟。'
+          : '继续观察，按医嘱复查。'),
+  ]));
+
+  for (const it of adv.items) {
+    const box = el('div', {
+      style: 'padding:11px 0;border-bottom:1px solid var(--line)',
+    });
+    const head = el('div', { style: 'display:flex;gap:8px;align-items:baseline;margin-bottom:5px;flex-wrap:wrap' });
+    head.append(el('div', { style: 'font-size:var(--fs-sm);font-weight:700;flex:1;min-width:0' }, it.name));
+    const meta = LEVEL_META[it.action] || LEVEL_META.watch;
+    head.append(el('span', { class: 'tag ' + meta.cls, style: 'font-size:var(--fs-2xs)' }, meta.short));
+    box.append(head);
+    const tip = el('div', {
+      style: 'font-size:var(--fs-xs);line-height:1.7;'
+        + (it.action === 'urgent' ? 'color:#a8322a' : it.action === 'ask' ? 'color:#8d5a10' : 'color:var(--ink-2)'),
+    }, it.text);
+    box.append(tip);
+    body.append(box);
+  }
+
+  body.append(el('div', { class: 'tiny muted', style: 'margin-top:14px;line-height:1.65' },
+    '这些是按症状程度给的通用处理建议，不替代医生。拿不准就打电话问。'));
+
+  openSheet({
+    title: '接下来怎么做',
+    body,
+    footer: [
+      el('button', { class: 'btn', onclick: closeSheet }, '知道了'),
+      adv.overall === 'urgent'
+        ? el('button', {
+          class: 'btn primary',
+          onclick: () => {
+            closeSheet();
+            if (S.profile.doctorPhone) location.href = 'tel:' + S.profile.doctorPhone;
+            else toast('还没填医生电话，去「更多 → 患者信息」补上');
+          },
+        }, S.profile.doctorPhone ? '打给医生' : '联系医生')
+        : el('button', { class: 'btn', onclick: () => { closeSheet(); refreshData(true); } }, '看今天的安排'),
+    ],
+  });
+}
+
+/* ---------- 分享给家人 ---------- */
+
+/**
+ * 设计思路
+ * --------
+ * 「分享」不是把这份数据复制给别人，而是给别人一个同样的工具，
+ * 让他自己记录。因为：
+ *   1. 数据存在各自手机的浏览器里，技术上无法直接推送过去
+ *   2. 病人自己记录的感受，比家属代填更真实
+ *   3. 但如果两个人各记一份，数据就分裂了
+ *
+ * 所以这里做三件事：
+ *   - 给出网址，让对方自己装到主屏幕
+ *   - 说明「谁记什么」的分工，避免重复劳动
+ *   - 教怎么把两边数据合到一起（备份文件互相导入）
+ */
+function openShareSheet() {
+  const body = el('div', {});
+
+  body.append(el('div', { class: 'alert info' }, [
+    el('div', { class: 't' }, '先说清楚一件事'),
+    el('div', { class: 'tiny', style: 'margin-top:4px;line-height:1.7' },
+      '每台手机的数据是独立的，不能自动同步。'
+      + '所以你和他各用一份，他记他的感受，你记你的资料，最后靠「备份文件」合到一起。'),
+  ]));
+
+  // 分工建议
+  body.append(el('div', { class: 'section-title' }, '建议这样分工'));
+
+  const table = el('div', { class: 'card plain' });
+  const row = (who, what, color) => {
+    const r = el('div', { style: 'padding:9px 0;border-bottom:1px solid var(--line)' });
+    r.append(el('div', { style: `font-size:var(--fs-xs);font-weight:700;color:${color};margin-bottom:3px` }, who));
+    r.append(el('div', { style: 'font-size:var(--fs-xs);color:var(--ink-2);line-height:1.6' }, what));
+    return r;
+  };
+  table.append(row('病人自己记（每天 30 秒）', '今天胃口、精神、有没有哪里不舒服、体温。点几下就行，不用打字。', 'var(--brand-deep)'));
+  table.append(row('你记（每次拿单子时）', '化验单数值、检查报告结论、下次治疗时间。', 'var(--blue-dark)'));
+  const last = el('div', { style: 'padding:9px 0' });
+  last.append(el('div', { style: 'font-size:var(--fs-xs);font-weight:700;color:var(--ok);margin-bottom:3px' }, '两边都记的'));
+  last.append(el('div', { style: 'font-size:var(--fs-xs);color:var(--ink-2);line-height:1.6' }, '体温和不适症状。因为这两个最需要当下的感受。'));
+  table.append(last);
+  body.append(table);
+
+  // 网址
+  body.append(el('div', { class: 'section-title' }, '把这个网址发给他'));
+
+  const url = 'https://zzzckol.github.io/treatment-tracker/';
+  const urlBox = el('div', {
+    style: 'background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:12px;'
+      + 'font-size:var(--fs-xs);font-family:ui-monospace,Menlo,monospace;word-break:break-all;'
+      + 'line-height:1.6;margin-bottom:10px;color:var(--ink-1)',
+  }, url);
+  body.append(urlBox);
+
+  body.append(el('button', {
+    class: 'btn block primary', style: 'margin-bottom:10px',
+    onclick: async () => {
+      const msg = `治疗跟进，帮你记录身体的感受，点几下就行：\n${url}\n\n打开后用「添加到主屏幕」，之后从桌面图标进。`;
+      try {
+        if (navigator.share) {
+          await navigator.share({ title: '治疗跟进', text: msg, url });
+        } else {
+          await navigator.clipboard.writeText(msg);
+          toast('已复制，去微信粘给他');
+        }
+      } catch (e) {
+        if (e.name !== 'AbortError') {
+          // 分享失败就复制
+          try {
+            await navigator.clipboard.writeText(msg);
+            toast('已复制，去微信粘给他');
+          } catch { toast('请长按上面的网址复制'); }
+        }
+      }
+    },
+  }, '分享 / 复制邀请文字'));
+
+  // 教学步骤
+  body.append(el('div', { class: 'section-title' }, '他第一次打开后要做'));
+  const steps = el('div', { class: 'card plain' });
+  const step = (n, text) => {
+    const s = el('div', { style: 'display:flex;gap:10px;padding:8px 0' });
+    s.append(el('div', {
+      style: 'width:22px;height:22px;border-radius:50%;background:var(--brand);color:#fff;'
+        + 'font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0',
+    }, String(n)));
+    s.append(el('div', { style: 'font-size:var(--fs-xs);color:var(--ink-2);line-height:1.6;flex:1' }, text));
+    return s;
+  };
+  steps.append(step(1, 'Safari 打开网址 → 分享 → 添加到主屏幕'));
+  steps.append(step(2, '从桌面图标打开 → 填一下「患者称呼」，填他自己就行'));
+  steps.append(step(3, '点「记录今天」，选今天哪里不舒服，30 秒搞定'));
+  steps.append(step(4, '家里有人帮他也可以，两个人用一台手机没问题'));
+  body.append(steps);
+
+  // 合并数据
+  body.append(el('div', { class: 'section-title' }, '怎么把两边数据合到一起'));
+  body.append(el('div', { class: 'card plain' }, [
+    el('div', { class: 'tiny', style: 'line-height:1.75;color:var(--ink-2)' },
+      '每周末做一次：他在他的手机上「更多 → 备份全部数据」，把那个文件发给你；'
+      + '你在这边「更多 → 从备份恢复」，选那个文件。同一天的记录会合并，不会重复。'),
+  ]));
+
+  body.append(el('div', { class: 'alert warn', style: 'margin-top:14px' }, [
+    el('div', { class: 't' }, '别指望自动同步'),
+    el('div', { class: 'tiny', style: 'margin-top:3px;line-height:1.7' },
+      '要真正实时同步，需要服务器和账号系统，成本和维护都高很多。'
+      + '对现在的用法，每周手动合一次完全够用。'),
+  ]));
+
+  openSheet({
+    title: '分享给家人',
+    body,
+    footer: [el('button', { class: 'btn', onclick: closeSheet }, '关闭')],
   });
 }
 
