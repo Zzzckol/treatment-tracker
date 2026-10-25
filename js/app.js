@@ -54,6 +54,11 @@ async function boot() {
   render();
 
   window.addEventListener('hashchange', () => {
+    // 如果是导入链接，优先处理（同一个标签页里点链接不会重载页面）
+    if (parseImportHash(location.hash)) {
+      handleLinkImport();
+      return;
+    }
     const p = location.hash.replace('#', '');
     if (['today', 'plan', 'labs', 'syms', 'more'].includes(p) && p !== S.page) {
       S.page = p; render();
@@ -65,6 +70,16 @@ async function boot() {
 
   // 链接导入：地址里带 #import= 时自动拉取并导入
   handleLinkImport();
+
+  // 兜底：有些浏览器从首页跳到同页不同 hash 时不会触发 hashchange，
+  // 这里定时轻量检查一下（只在有导入参数时才动作）
+  let lastHash = location.hash;
+  setInterval(() => {
+    if (location.hash !== lastHash) {
+      lastHash = location.hash;
+      if (parseImportHash(location.hash)) handleLinkImport();
+    }
+  }, 800);
 }
 
 /** 处理 #import=slug.key 形式的链接导入 */
