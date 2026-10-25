@@ -6,13 +6,27 @@
 
 ---
 
-## 一、5 分钟部署
+## 一、部署
 
-### 1. 建仓库
+### 推荐方式：`deploy.mjs` 一键部署
 
-在 GitHub 新建一个仓库，比如 `treatment-tracker`，**Private 也可以**（Pages 需要 Public，见下）。
+这台机器**没有 git，也没有 gh CLI**，所以不要用 `git push` 那一套，会第一条命令就失败。
 
-把这个文件夹里所有文件传上去。命令行方式：
+部署走 GitHub API，脚本已经写好，完整步骤见 **[部署指南.md](./部署指南.md)**。
+
+摘要：
+
+1. 建 fine-grained token，权限勾这三项：**Contents**、**Workflows**、**Pages**，全部 Read and write
+2. 把 token 存到 `D:\AI\.gh-token.txt`（一行，不要多余字符）
+3. 跑 `node deploy.mjs`
+
+脚本自动完成：建仓库 → 上传文件 → 开 Pages → 打印网址。
+
+> **Workflows 权限别漏。** 少了它，微信推送的定时任务传不上去，网页能用但提醒不响。
+
+### 手动方式（有 git 的机器才用）
+
+如果你在别的机器上操作，也可以照常走 git：
 
 ```bash
 cd treatment-tracker
@@ -24,15 +38,19 @@ git remote add origin https://github.com/你的用户名/treatment-tracker.git
 git push -u origin main
 ```
 
-### 2. 开 Pages
-
-仓库 → Settings → Pages → Source 选 `Deploy from a branch` → Branch 选 `main`、目录 `/ (root)` → Save。
+然后在仓库 → Settings → Pages → Source 选 `Deploy from a branch` → Branch 选 `main`、目录 `/ (root)` → Save。
 
 等 1-2 分钟，访问 `https://你的用户名.github.io/treatment-tracker/`。
 
 > 注意：GitHub Pages 免费版要求仓库 **Public**。如果不想公开代码，可以改用 Cloudflare Pages（支持私有仓库免费托管），上传方式一样。
 
-### 3. 手机上装成 App
+### 更新已部署的站点
+
+改完代码后重跑一次 `node deploy.mjs` 即可覆盖上传，它会复用已存在的仓库。
+
+前提是 `D:\AI\.gh-token.txt` 还在。删过的话，按《部署指南》重新建一个 token 放回去。
+
+### 装到手机上
 
 - **iPhone**：Safari 打开上面的网址 → 底部「分享」→「添加到主屏幕」
 - **安卓**：Chrome 打开 → 右上角菜单 →「添加到主屏幕」/「安装应用」
@@ -66,11 +84,22 @@ git push -u origin main
 打开网页 → 「更多」→「微信提醒推送」：
 
 1. 填 SendKey（本地留个记录）
-2. 填 GitHub Token：GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token，勾上 `repo` 权限
+2. 填 GitHub Token：GitHub → Settings → Developer settings → Personal access tokens → **Tokens (classic)** → Generate new token，勾上 `repo` 权限
 3. 填仓库：`你的用户名/treatment-tracker`
 4. 点「同步日程到云端」
 
 之后**每次改了日程，都要回来点一次同步**，否则云端还是旧数据。
+
+> **这里用的是和部署不同的第二个 token，别搞混。**
+>
+> | | 部署用的 | 这里填的（网页里） |
+> |---|---|---|
+> | 类型 | fine-grained（`github_pat_...`） | classic（`ghp_...`） |
+> | 权限 | Contents + Workflows + Pages | 只勾 `repo` |
+> | 存哪 | `D:\AI\.gh-token.txt` | 网页「更多 → 微信提醒推送」 |
+> | 要不要留 | 部署完可以删 | **长期保留，别删** |
+>
+> 部署那个删了不影响日常使用；网页里这个删了，「同步日程到云端」就失效，微信收不到更新后的日程。
 
 ### 5. 测试
 
