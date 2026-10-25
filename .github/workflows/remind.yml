@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       force:
-        description: '强制发一条测试消息'
+        description: '强制发一条测试消息（填 1）'
         required: false
         default: ''
 
@@ -23,9 +23,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Node 24：Node 20 已进入弃用期，会打出 deprecation 警告
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: 检查是否需要推送
         env:
