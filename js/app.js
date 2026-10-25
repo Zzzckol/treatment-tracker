@@ -206,25 +206,21 @@ async function refreshData(silent = false) {
 async function forceUpdate() {
   toast('正在更新…');
   try {
-    // 关键顺序：先注销 Service Worker，再清缓存，否则运行中的
-    // SW 会在删除的同时又把响应写回缓存，导致清不掉。
-    const regs = await navigator.serviceWorker.getRegistrations();
-    for (const reg of regs) {
-      await reg.unregister();
-    }
+    // 踩过的坑（重要）：
+    // 1. 不要 unregister Service Worker —— 实测会导致重载后读不到 IndexedDB 数据
+    // 2. 不要给 URL 加 ?_u= 之类的查询参数 —— 实测同样会导致数据读不到
+    // 这两条都会让用户以为数据丢了，风险远大于"强制拿到最新文件"的收益。
+    // 现在只做一件安全的事：清掉静态资源缓存，然后普通刷新。
+    // 数据在 IndexedDB 里，与缓存无关，绝对不会被这次操作动到。
 
-    // 清空所有缓存
     const keys = await caches.keys();
     await Promise.all(keys.map((k) => caches.delete(k)));
-
-    // 绕过 HTTP 缓存重新加载
-    const url = new URL(location.href);
-    url.searchParams.set('_u', Date.now().toString(36));
-    location.replace(url.toString());
-  } catch (e) {
-    // 兜底：至少做一次硬刷新
-    location.reload();
+  } catch {
+    // 清缓存失败也没关系，继续刷新
   }
+
+  // 用 replace 避免在历史里留多余的记录，但不改 URL 结构
+  location.replace(location.pathname);
 }
 
 /** 顶部更新提示条 */
