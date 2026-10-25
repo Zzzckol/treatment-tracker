@@ -22,6 +22,7 @@ import {
   adviseLab, adviseSymptoms, summarizeAdvice, LEVEL_META,
 } from './advice.js';
 import { pushShared, pullShared, parseShareCode } from './sync.js';
+import { openQuickApptSheet, initQuickAppt } from './quickappt.js';
 
 /* ==========================================================
    状态
@@ -71,6 +72,9 @@ async function boot() {
 
   registerSW();
   initPullToRefresh();
+
+  // 极简日程面板需要回到 app 的刷新/渲染
+  initQuickAppt({ reload, render });
 
   // 链接导入：地址里带 #import= 时自动拉取并导入
   handleLinkImport();
@@ -383,13 +387,13 @@ function bindFab() {
 /** 当前页面的主要新增动作 */
 function primaryAction() {
   const map = {
-    today: openApptSheet,
-    plan: openApptSheet,
+    today: openQuickApptSheet,
+    plan: openQuickApptSheet,
     labs: openLabSheet,
     syms: openSymSheet,
-    more: openApptSheet,
+    more: openQuickApptSheet,
   };
-  (map[S.page] || openApptSheet)();
+  (map[S.page] || openQuickApptSheet)();
 }
 
 /** 在页面顶部渲染操作按钮行 */
@@ -554,7 +558,7 @@ function pageToday() {
 
   v.append(pageActions([
     { label: '记录今天', fn: () => openSymSheet(), primary: true },
-    { label: '加日程', fn: () => openApptSheet() },
+    { label: '加日程', fn: () => openQuickApptSheet() },
   ]));
 
   // 统一行动建议：把化验异常和症状合成一个「今天该做什么」的结论
@@ -935,7 +939,7 @@ function pagePlan() {
           '可以手动加一条，也可以告诉我化疗周期天数，我一次把 6 个周期全排出来。'),
       ]),
       el('button', { class: 'btn primary block', onclick: openCycleSheet }, '按治疗方案自动排期'),
-      el('button', { class: 'btn block', style: 'margin-top:8px', onclick: () => openApptSheet() }, '手动加一条'),
+      el('button', { class: 'btn block', style: 'margin-top:8px', onclick: () => openQuickApptSheet() }, '手动加一条'),
     ]));
     return;
   }
@@ -971,7 +975,7 @@ function apptList(list, isPast) {
       wrap.append(dRow);
     }
     const meta = typeMeta(a.type);
-    const item = el('div', { class: 'item', onclick: () => openApptSheet(a) });
+    const item = el('div', { class: 'item', onclick: () => openQuickApptSheet(a) });
     const body = el('div', { class: 'body' });
     const titleRow = el('div', { class: 'title' });
     titleRow.append(el('span', { class: 'tag', style: `background:${hexSoft(meta.color)};color:${meta.color}` }, meta.name));
@@ -1001,83 +1005,6 @@ function hexSoft(hex) {
   const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
   const mix = (c) => Math.round(c + (255 - c) * 0.86);
   return `rgb(${mix(r)},${mix(g)},${mix(b)})`;
-}
-
-/* ---------- 日程编辑 ---------- */
-
-function openApptSheet(existing) {
-  const a = existing || { date: today(), time: '', type: 'chemo', title: '', place: S.profile.hospital || '', note: '', done: false };
-  const body = el('div', {});
-
-  const fDate = el('input', { type: 'date', value: a.date });
-  body.append(field('日期', fDate));
-  const fTime = el('input', { type: 'time', value: a.time || '' });
-  body.append(field('时间（可不填）', fTime));
-
-  const typeSeg = el('div', { class: 'seg' });
-  for (const t of APPT_TYPES) {
-    const b = el('button', { type: 'button', 'aria-pressed': a.type === t.id ? 'true' : 'false' }, t.name);
-    b.addEventListener('click', () => {
-      typeSeg.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', 'false'));
-      b.setAttribute('aria-pressed', 'true');
-      a.type = t.id;
-      if (!fTitle.value || APPT_TYPE_INDEX.get(a._lastType || '')?.name === fTitle.value) {
-        // 只在标题为空时自动填，避免覆盖用户输入
-        if (!fTitle.value) fTitle.value = t.name;
-      }
-    });
-    typeSeg.append(b);
-  }
-  body.append(field('类型', typeSeg));
-
-  const fTitle = el('input', { type: 'text', value: a.title || '', placeholder: '例如：化疗 第 3 周期 D1' });
-  if (!fTitle.value) fTitle.value = typeMeta(a.type).name;
-  body.append(field('名称', fTitle));
-
-  const fPlace = el('input', { type: 'text', value: a.place || '', placeholder: '例如：肿瘤内科门诊 3 楼' });
-  body.append(field('地点', fPlace));
-
-  const fNote = el('textarea', { placeholder: '要带的东西、空腹要求、找哪个医生…' });
-  fNote.value = a.note || '';
-  body.append(field('备注', fNote));
-
-  const foot = [
-    el('button', { class: 'btn', onclick: closeSheet }, '取消'),
-    el('button', {
-      class: 'btn primary',
-      onclick: async () => {
-        if (!fTitle.value.trim()) { toast('给这件事起个名字'); return; }
-        const rec = existing ? { ...existing } : { id: db.uid() };
-        Object.assign(rec, {
-          date: fDate.value,
-          time: fTime.value,
-          type: a.type,
-          title: fTitle.value.trim(),
-          place: fPlace.value.trim(),
-          note: fNote.value.trim(),
-        });
-        await db.put('appointments', rec);
-        await reload();
-        closeSheet();
-        render();
-        toast(existing ? '已保存' : '已添加');
-      },
-    }, '保存'),
-  ];
-
-  if (existing) {
-    foot.unshift(el('button', {
-      class: 'btn danger',
-      onclick: async () => {
-        if (await confirmAsk('删掉这条日程？')) {
-          await db.del('appointments', existing.id);
-          await reload(); render(); toast('已删除');
-        }
-      },
-    }, '删除'));
-  }
-
-  openSheet({ title: existing ? '修改日程' : '新增日程', body, footer: foot });
 }
 
 function field(labelText, input, help) {
