@@ -618,7 +618,59 @@ function pageToday() {
     v.append(c);
   }
 
+  // 关键检查报告：PET/CT、CT、病理这些，家属最常翻
+  const keyReports = latestKeyReports();
+  if (keyReports.length) {
+    const c = el('div', { class: 'card' });
+    c.append(el('div', { class: 'card-head' }, [
+      el('h2', {}, '重要检查报告'),
+      el('span', { class: 'hint' }, `${S.docs.length} 份资料`),
+    ]));
+    for (const d of keyReports) {
+      const row = el('div', {
+        class: 'item', style: 'cursor:pointer;padding:10px 0', onclick: () => openDocDetail(d),
+      });
+      const b2 = el('div', { class: 'body' });
+      const head = el('div', { style: 'display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:3px' });
+      head.append(el('span', { class: 'tag ' + docTone(docKindOf(d)), style: 'font-size:var(--fs-2xs)' }, docKindOf(d)));
+      head.append(el('span', { class: 'tiny', style: 'color:var(--ink-4)' }, fmtYMD(d.date)));
+      b2.append(head);
+      b2.append(el('div', { style: 'font-size:var(--fs-sm);font-weight:600;line-height:1.4' }, d.title || '未命名'));
+      c.append(row);
+      row.append(b2);
+      row.append(el('div', { class: 'chev', style: 'color:var(--ink-4);flex-shrink:0' }, '›'));
+    }
+    c.append(el('button', {
+      class: 'btn block', style: 'margin-top:8px',
+      onclick: () => openDocsPage(),
+    }, '看全部资料'));
+    v.append(c);
+  } else if (S.docs.length) {
+    v.append(el('div', { class: 'card plain' }, [
+      el('button', { class: 'btn block', onclick: () => openDocsPage() }, `查看资料（${S.docs.length} 份）`),
+    ]));
+  }
+
   v.append(monthlySummary());
+}
+
+/** 挑出最该展示的几份关键报告：PET/CT、CT、病理、基因检测 */
+function latestKeyReports(limit = 5) {
+  if (!S.docs.length) return [];
+  const score = (d) => {
+    const t = (d.title || '') + (d.summary || '');
+    let s = 0;
+    if (/PET\/?CT/i.test(t)) s += 100;          // PET/CT 最优先
+    if (/免疫组化|病理/.test(t) || d.kind === '病理报告') s += 80;
+    if (/基因/.test(t) || d.kind === '基因检测') s += 70;
+    if (/CT|MRI|磁共振|超声/.test(t)) s += 60;
+    if (/出院/.test(t)) s += 50;
+    return s;
+  };
+  return S.docs
+    .filter((d) => score(d) > 0)
+    .sort((a, b) => score(b) - score(a) || String(b.date || '').localeCompare(String(a.date || '')))
+    .slice(0, limit);
 }
 
 function symSummaryLine(r) {
@@ -1719,39 +1771,135 @@ function showUpdateSheet() {
 
 /* ---------- 资料库 ---------- */
 
-function openDocsPage() {
+function openDocsPage(filterKind) {
   const body = el('div', {});
 
-  body.append(el('div', { class: 'btn-row' }, [
-    el('button', { class: 'btn sm primary', onclick: openDocSheet }, '添加资料'),
-  ]));
+  // 顶部：分类筛选
+  const kinds = ['全部', '影像报告', '病理报告', '化验单', '出院小结', '基因检测', '其他'];
+  const state = { kind: filterKind || '全部', q: '' };
 
-  if (!S.docs.length) {
-    body.append(el('div', { class: 'empty' }, [
-      el('div', { class: 'big' }, '📁'),
-      el('div', {}, '还没有资料'),
-      el('div', { class: 'tiny', style: 'margin-top:8px' }, '拍张照或者填一下报告结论，以后不用翻箱倒柜'),
-    ]));
-  } else {
-    const c = el('div', {});
-    for (const d of [...S.docs].sort((a, b) => b.date.localeCompare(a.date))) {
-      const item = el('div', { class: 'item', style: 'cursor:pointer', onclick: () => openDocDetail(d) });
-      const b2 = el('div', { class: 'body' });
-      b2.append(el('div', { class: 'title' }, `${d.kind ? '[' + d.kind + '] ' : ''}${d.title || '未命名'}`));
-      const bits = [fmtYMD(d.date)];
-      if (d.hospital) bits.push(d.hospital);
-      if (d.summary) bits.push(d.summary);
-      b2.append(el('div', { class: 'meta' }, bits.join(' · ')));
-      item.append(b2);
-      if (d.photo) item.append(el('div', { class: 'tail' }, el('img', {
-        src: d.photo, style: 'width:42px;height:42px;object-fit:cover;border-radius:8px', alt: '',
-      })));
-      c.append(item);
+  const chips = el('div', { style: 'margin-bottom:12px;display:flex;gap:6px;flex-wrap:wrap' });
+  const list = el('div', {});
+  const countLine = el('div', { class: 'tiny muted', style: 'margin-bottom:8px' });
+
+  const renderChips = () => {
+    chips.replaceChildren();
+    for (const k of kinds) {
+      const n = k === '全部' ? S.docs.length : S.docs.filter((d) => docKindOf(d) === k).length;
+      if (n === 0 && k !== '全部') continue;
+      const chip = el('button', {
+        class: 'chip' + (state.kind === k ? ' on' : ''),
+        style: 'font-family:inherit;cursor:pointer',
+      }, `${k}${n ? ' ' + n : ''}`);
+      chip.addEventListener('click', () => {
+        state.kind = k;
+        renderChips();
+        renderList();
+      });
+      chips.append(chip);
     }
-    body.append(c);
-  }
+  };
 
-  openSheet({ title: '就诊资料库', body, footer: [el('button', { class: 'btn', onclick: closeSheet }, '关闭')] });
+  const renderList = () => {
+    list.replaceChildren();
+    let rows = S.docs.slice();
+    if (state.kind !== '全部') rows = rows.filter((d) => docKindOf(d) === state.kind);
+    if (state.q) {
+      const q = state.q.toLowerCase();
+      rows = rows.filter((d) =>
+        (d.title || '').toLowerCase().includes(q) ||
+        (d.summary || '').toLowerCase().includes(q) ||
+        (d.hospital || '').toLowerCase().includes(q));
+    }
+    rows.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+
+    countLine.textContent = rows.length ? `${rows.length} 份` : '';
+
+    if (!rows.length) {
+      list.append(el('div', { class: 'empty' }, [
+        el('div', { class: 'big' }, '📁'),
+        el('div', {}, state.q ? '没找到匹配的资料' : '这个分类下还没有资料'),
+      ]));
+      return;
+    }
+
+    for (const d of rows) {
+      const item = el('div', {
+        class: 'item', style: 'cursor:pointer;align-items:flex-start',
+        onclick: () => openDocDetail(d),
+      });
+      const b2 = el('div', { class: 'body' });
+      const titleRow = el('div', { style: 'display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:3px' });
+      const tone = docTone(docKindOf(d));
+      titleRow.append(el('span', { class: 'tag ' + tone, style: 'font-size:var(--fs-2xs)' }, docKindOf(d)));
+      titleRow.append(el('span', { class: 'tiny', style: 'color:var(--ink-4)' }, fmtYMD(d.date) || '无日期'));
+      b2.append(titleRow);
+      b2.append(el('div', {
+        style: 'font-size:var(--fs-sm);font-weight:600;line-height:1.4;margin-bottom:3px;overflow-wrap:break-word',
+      }, d.title || '未命名'));
+      if (d.summary) {
+        // 摘要显示前 2 行，点开看全文
+        b2.append(el('div', {
+          style: 'font-size:var(--fs-2xs);color:var(--ink-3);line-height:1.5;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical',
+        }, d.summary));
+      }
+      item.append(b2);
+      if (d.photo) {
+        item.append(el('div', { class: 'tail' }, el('img', {
+          src: d.photo,
+          style: 'width:40px;height:40px;object-fit:cover;border-radius:8px', alt: '',
+        })));
+      }
+      list.append(item);
+    }
+  };
+
+  // 搜索框
+  const search = el('input', {
+    type: 'text', placeholder: '搜报告名、结论关键词…',
+    style: 'margin-bottom:10px',
+  });
+  search.addEventListener('input', () => {
+    state.q = search.value.trim();
+    renderList();
+  });
+
+  body.append(search);
+  body.append(chips);
+  body.append(countLine);
+  body.append(list);
+
+  renderChips();
+  renderList();
+
+  const foot = [
+    el('button', { class: 'btn', onclick: closeSheet }, '关闭'),
+    el('button', { class: 'btn primary', onclick: openDocSheet }, '添加资料'),
+  ];
+
+  openSheet({ title: '就诊资料库', body, footer: foot });
+}
+
+/** 归类：把各种 kind 收敛到几个大类 */
+function docKindOf(d) {
+  const k = d.kind || '其他';
+  if (k === '影像报告') return '影像报告';
+  if (k === '病理报告') return '病理报告';
+  if (k === '基因检测') return '基因检测';
+  if (k === '化验单') return '化验单';
+  if (k === '出院小结' || k === '门诊病历') return '出院小结';
+  return '其他';
+}
+
+function docTone(kind) {
+  switch (kind) {
+    case '影像报告': return '';                     // 青绿
+    case '病理报告': return 'bad';                  // 红
+    case '基因检测': return 'warn';                 // 橙
+    case '化验单': return 'ok';                     // 绿
+    case '出院小结': return 'grey';
+    default: return 'grey';
+  }
 }
 
 function openDocSheet(existing) {
@@ -1832,26 +1980,59 @@ function openDocSheet(existing) {
 
 function openDocDetail(d) {
   const body = el('div', {});
-  body.append(el('div', { class: 'kv' }, [el('span', { class: 'k' }, '日期'), el('span', { class: 'v' }, fmtYMD(d.date))]));
-  body.append(el('div', { class: 'kv' }, [el('span', { class: 'k' }, '类型'), el('span', { class: 'v' }, d.kind || '-')]));
-  if (d.hospital) body.append(el('div', { class: 'kv' }, [el('span', { class: 'k' }, '医院'), el('span', { class: 'v' }, d.hospital)]));
+
+  // 顶部信息
+  const meta = el('div', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px' });
+  meta.append(el('span', { class: 'tag ' + docTone(docKindOf(d)) }, docKindOf(d)));
+  if (d.date) meta.append(el('span', { class: 'tiny', style: 'color:var(--ink-3)' }, fmtYMD(d.date)));
+  body.append(meta);
+
+  if (d.hospital) {
+    body.append(el('div', { class: 'tiny', style: 'color:var(--ink-3);margin-bottom:12px' }, d.hospital));
+  }
+
   if (d.summary) {
-    body.append(el('div', { class: 'section-title' }, '摘要'));
-    body.append(el('div', { style: 'white-space:pre-wrap;font-size:.9rem' }, d.summary));
+    // 结论正文：用正文样式，行长合适，方便长时间阅读
+    const txt = el('div', {
+      class: 'prose',
+      style: 'font-size:var(--fs-sm);line-height:1.75;color:var(--ink-1)',
+    });
+    // 按句号/分号分段，读起来不累
+    const parts = d.summary.split(/(?<=[。；])/).filter((x) => x.trim());
+    for (const p of parts) txt.append(el('div', { style: 'margin-bottom:8px' }, p.trim()));
+    body.append(txt);
+  } else {
+    body.append(el('div', { class: 'muted tiny' }, '这份资料没有填结论摘要'));
   }
+
   if (d.photo) {
-    body.append(el('img', { src: d.photo, style: 'width:100%;border-radius:12px;margin-top:10px;border:1px solid #e2ecf0' }));
+    body.append(el('img', {
+      src: d.photo,
+      style: 'width:100%;border-radius:12px;margin-top:14px;border:1px solid var(--line)',
+    }));
   }
+
+  // 删除放在正文末尾，不占底部按钮位，避免误触
+  body.append(el('div', { style: 'margin-top:20px;text-align:center' },
+    el('button', {
+      class: 'btn sm danger',
+      onclick: async () => {
+        if (await confirmAsk('删掉这条资料？删了就找不回来了')) {
+          await db.del('docs', d.id);
+          await reload();
+          render();
+          toast('已删除');
+          openDocsPage();
+        }
+      },
+    }, '删除这份资料')));
+
   openSheet({
     title: d.title || '资料',
     body,
     footer: [
       el('button', { class: 'btn', onclick: () => openDocSheet(d) }, '修改'),
-      el('button', {
-        class: 'btn danger', onclick: async () => {
-          if (await confirmAsk('删掉这条资料？')) { await db.del('docs', d.id); await reload(); render(); toast('已删除'); }
-        },
-      }, '删除'),
+      el('button', { class: 'btn', onclick: () => openDocsPage() }, '返回列表'),
     ],
   });
 }
