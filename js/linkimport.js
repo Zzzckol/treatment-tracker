@@ -10,19 +10,45 @@
 import { validateBundle } from './import.js';
 
 /**
- * 解析 location.hash 里的导入参数
+ * 解析 location.hash 或完整链接里的导入参数
+ *
+ * 接受三种输入：
+ *   #import=slug.key
+ *   import=slug.key
+ *   https://xxx/#import=slug.key   （完整链接，用户粘贴的场景）
+ *
  * @returns {{slug: string, key: string}|null}
  */
 export function parseImportHash(hash) {
-  const h = String(hash || '').replace(/^#/, '');
-  if (!h.startsWith('import=')) return null;
-  const val = h.slice('import='.length);
-  if (!val) return null;
-  const dot = val.lastIndexOf('.');
+  let h = String(hash || '').trim();
+  if (!h) return null;
+
+  // 去掉用户可能一起复制进来的引号和空白
+  h = h.replace(/^["'\s]+|["'\s]+$/g, '');
+
+  // 如果传进来的是完整链接，先取出 # 之后的部分
+  const hashPos = h.indexOf('#');
+  if (hashPos >= 0) h = h.slice(hashPos + 1);
+
+  // 去掉可能的 import= 前缀
+  if (h.startsWith('import=')) h = h.slice('import='.length);
+
+  // 去掉尾部可能带上的查询串 / 多余内容
+  h = h.split('&')[0].split('?')[0].trim();
+
+  // 只保留合法字符（base64url 和点），丢掉中间混入的空格等
+  h = h.replace(/[^A-Za-z0-9_.-]/g, '');
+
+  if (!h) return null;
+
+  // 剩下应该是 slug.key
+  const dot = h.lastIndexOf('.');
   if (dot <= 0) return null;
-  const slug = val.slice(0, dot);
-  const key = val.slice(dot + 1);
+
+  const slug = h.slice(0, dot);
+  const key = h.slice(dot + 1);
   if (!slug || !key) return null;
+
   return { slug, key };
 }
 
