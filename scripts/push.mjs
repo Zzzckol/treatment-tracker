@@ -74,6 +74,13 @@ async function main() {
     return i.type === 'test' && dd >= 2 && dd <= 3;
   });
 
+  // 近 3 天内还有没有事；以及窗口外最近一条（预告用）
+  const soonAnything = items.filter((i) => {
+    const dd = diffDays(today, i.date);
+    return dd >= 0 && dd <= 3;
+  });
+  const nextBeyond = payload.nextBeyond || null;
+
   // 组装消息
   const sections = [];
 
@@ -86,6 +93,13 @@ async function main() {
   if (soonTests.length) {
     sections.push(['过两天要检查', soonTests.map((i) => `· ${i.date.slice(5)} ${i.title}`).join('\n')]);
   }
+
+  // 近 3 天都没安排，但有更远的日程 → 给一条预告，让推送不至于完全空白
+  if (!soonAnything.length && nextBeyond) {
+    sections.push(['接下来的安排',
+      `· ${nextBeyond.date.slice(5)} ${nextBeyond.title}（还有 ${nextBeyond.daysLeft} 天）`]);
+  }
+
   if (staleDays > 21) {
     sections.push(['⚠️ 日程很久没更新了',
       `上次同步是 ${generated || '从没同步过'}。打开网页点一次「同步日程到云端」，否则提醒会按旧数据发。`]);
@@ -108,7 +122,11 @@ async function main() {
     ? `${name}今天有 ${todayItems.length} 件事`
     : tomorrowItems.length
       ? `${name}明天有 ${tomorrowItems.length} 件事`
-      : `${name}治疗提醒`;
+      : soonAnything.length
+        ? `${name}近期有安排`
+        : nextBeyond
+          ? `${name}下次在 ${nextBeyond.daysLeft} 天后`
+          : `${name}治疗提醒`;
 
   const body = sections
     .map(([h, c]) => `## ${h}\n${c}`)
