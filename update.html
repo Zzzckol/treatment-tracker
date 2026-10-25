@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>更新治疗跟进</title>
+<style>
+  :root {
+    --brand: #0aa8a3; --ink1: #0f2430; --ink2: #3d5566; --ink3: #6b8296;
+    --bg: #f2f7f9; --line: #d3e2ea; --bad: #e2564b; --warn: #e08a1e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 20px 16px 40px;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--ink1); font-size: 16px; line-height: 1.65;
+    -webkit-text-size-adjust: 100%;
+  }
+  h1 { font-size: 21px; margin: 0 0 6px; letter-spacing: -.01em; }
+  .lead { font-size: 14px; color: var(--ink3); margin-bottom: 22px; }
+  .card {
+    background: #fff; border-radius: 16px; padding: 18px; margin-bottom: 14px;
+    box-shadow: 0 2px 10px rgba(15,36,48,.05);
+  }
+  .step {
+    display: flex; gap: 12px; margin-bottom: 20px;
+  }
+  .step:last-child { margin-bottom: 0; }
+  .num {
+    width: 26px; height: 26px; border-radius: 50%; background: var(--brand);
+    color: #fff; font-size: 14px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 2px;
+  }
+  .num.gray { background: #c8d6de; }
+  .body { flex: 1; min-width: 0; }
+  .t { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+  .d { font-size: 14px; color: var(--ink2); line-height: 1.7; }
+  .d b { color: var(--ink1); }
+  .btn {
+    display: block; width: 100%; min-height: 50px; border-radius: 13px;
+    border: 1px solid var(--line); background: #fff;
+    font-size: 16px; font-weight: 600; font-family: inherit; color: var(--ink1);
+    margin-bottom: 10px; cursor: pointer; text-align: center;
+    text-decoration: none; line-height: 48px;
+  }
+  .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+  .btn:active { opacity: .85; }
+  .warn {
+    background: #fdf4e4; border: 1px solid #f0d6a8; color: #8d5a10;
+    border-radius: 12px; padding: 12px 14px; font-size: 13px; line-height: 1.65;
+    margin-bottom: 16px;
+  }
+  .ok {
+    background: #e5f8ee; border: 1px solid #b8e6cc; color: #0b7a48;
+    border-radius: 12px; padding: 12px 14px; font-size: 13px; line-height: 1.65;
+  }
+  code {
+    background: #eef4f7; padding: 2px 6px; border-radius: 5px;
+    font-size: 13px; font-family: ui-monospace, Menlo, monospace;
+    word-break: break-all;
+  }
+  .hidden { display: none; }
+  .big-num { font-size: 30px; font-weight: 800; color: var(--brand); line-height: 1; }
+</style>
+</head>
+<body>
+
+<h1>更新治疗跟进</h1>
+<div class="lead">主屏幕里的旧版没有导入入口，需要更新一次</div>
+
+<div class="warn">
+  这一步只需做一次。做完之后，主屏幕里就有「从链接导入数据」了。
+</div>
+
+<div class="card" id="methodA">
+  <div style="font-weight:700;font-size:16px;margin-bottom:14px;">方法一（推荐，最快）</div>
+
+  <div class="step">
+    <div class="num">1</div>
+    <div class="body">
+      <div class="t">在主屏幕长按「治疗跟进」图标</div>
+      <div class="d">图标会抖动，左上角出现 <b>×</b> 或弹出菜单</div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="num">2</div>
+    <div class="body">
+      <div class="t">删除这个图标</div>
+      <div class="d">选「删除书签」或「移除 App」。<b>这不影响数据</b>，只是把快捷方式去掉</div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="num">3</div>
+    <div class="body">
+      <div class="t">用 Safari 打开下面这个网址</div>
+      <div class="d"><code>zzzckol.github.io/treatment-tracker/</code></div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="num">4</div>
+    <div class="body">
+      <div class="t">点 Safari 底部「分享」→「添加到主屏幕」</div>
+      <div class="d">这样装上的就是最新版</div>
+    </div>
+  </div>
+</div>
+
+<a class="btn primary" href="https://zzzckol.github.io/treatment-tracker/" target="_blank" rel="noopener">
+  直接用 Safari 打开网址
+</a>
+
+<div class="card">
+  <div style="font-weight:700;font-size:16px;margin-bottom:14px;">方法二（不想删图标）</div>
+
+  <div class="step">
+    <div class="num gray">1</div>
+    <div class="body">
+      <div class="t">在主屏幕图标里进「更多」→「检查更新」</div>
+      <div class="d">点「强制更新到最新版本」，等它自己重开</div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="num gray">2</div>
+    <div class="body">
+      <div class="t">如果没有「检查更新」这一项</div>
+      <div class="d">说明你这版更旧，请用方法一</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div style="font-weight:700;font-size:16px;margin-bottom:12px;">更新完之后</div>
+  <div class="d" style="margin-bottom:14px;">
+    进「更多」→「从链接导入数据」，把下面这段完整粘贴进去，点「开始导入」：
+  </div>
+  <div style="background:#f8fbfc;border:1px solid var(--line);border-radius:10px;padding:12px;font-size:11px;font-family:ui-monospace,Menlo,monospace;word-break:break-all;line-height:1.6;margin-bottom:12px;" id="codeBox">https://zzzckol.github.io/treatment-tracker/#import=-_TIeG0Gpcc5Ezho1rtAmg.NhvEWR0NQP9Y2ttqBj720UUA_QO_pmK7-VqXoDJXxEU</div>
+  <button class="btn" id="copyBtn">复制导入链接</button>
+  <div class="d" style="font-size:13px;margin-top:10px;">
+    粘贴后会自动识别，不用管换行。
+  </div>
+</div>
+
+<div class="card">
+  <div class="ok">
+    <b>数据安全说明</b><br>
+    删图标、重装图标都不会删除你手机里的数据。<br>
+    但为了保险，导入成功后请立刻做一次备份：<br>
+    更多 → 备份全部数据 → 存到微信收藏。
+  </div>
+</div>
+
+<script>
+const CODE = 'https://zzzckol.github.io/treatment-tracker/#import=-_TIeG0Gpcc5Ezho1rtAmg.NhvEWR0NQP9Y2ttqBj720UUA_QO_pmK7-VqXoDJXxEU';
+document.getElementById('copyBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('copyBtn');
+  try {
+    await navigator.clipboard.writeText(CODE);
+    btn.textContent = '已复制 ✓ 去粘贴吧';
+    btn.style.background = '#0fa15c';
+    btn.style.color = '#fff';
+    btn.style.borderColor = '#0fa15c';
+  } catch {
+    // 剪贴板不可用时选中文本
+    const range = document.createRange();
+    range.selectNodeContents(document.getElementById('codeBox'));
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    btn.textContent = '已选中，长按复制';
+  }
+});
+</script>
+
+</body>
+</html>
