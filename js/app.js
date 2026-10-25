@@ -21,6 +21,7 @@ import { parseImportHash, fetchEncryptedBundle } from './linkimport.js';
 import {
   adviseLab, adviseSymptoms, summarizeAdvice, LEVEL_META,
 } from './advice.js';
+import { pushShared, pullShared, parseShareCode } from './sync.js';
 
 /* ==========================================================
    状态
@@ -2153,103 +2154,196 @@ function showSymptomAdvice(adv) {
 function openShareSheet() {
   const body = el('div', {});
 
-  body.append(el('div', { class: 'alert info' }, [
-    el('div', { class: 't' }, '先说清楚一件事'),
-    el('div', { class: 'tiny', style: 'margin-top:4px;line-height:1.7' },
-      '每台手机的数据是独立的，不能自动同步。'
-      + '所以你和他各用一份，他记他的感受，你记你的资料，最后靠「备份文件」合到一起。'),
-  ]));
+  // ===== 核心：共享码 =====
+  const cache = { code: localStorage.getItem('tx-share-code') || '' };
 
-  // 分工建议
-  body.append(el('div', { class: 'section-title' }, '建议这样分工'));
+  body.append(el('div', { class: 'section-title' }, '共享数据（推荐）'));
 
-  const table = el('div', { class: 'card plain' });
-  const row = (who, what, color) => {
-    const r = el('div', { style: 'padding:9px 0;border-bottom:1px solid var(--line)' });
-    r.append(el('div', { style: `font-size:var(--fs-xs);font-weight:700;color:${color};margin-bottom:3px` }, who));
-    r.append(el('div', { style: 'font-size:var(--fs-xs);color:var(--ink-2);line-height:1.6' }, what));
-    return r;
-  };
-  table.append(row('病人自己记（每天 30 秒）', '今天胃口、精神、有没有哪里不舒服、体温。点几下就行，不用打字。', 'var(--brand-deep)'));
-  table.append(row('你记（每次拿单子时）', '化验单数值、检查报告结论、下次治疗时间。', 'var(--blue-dark)'));
-  const last = el('div', { style: 'padding:9px 0' });
-  last.append(el('div', { style: 'font-size:var(--fs-xs);font-weight:700;color:var(--ok);margin-bottom:3px' }, '两边都记的'));
-  last.append(el('div', { style: 'font-size:var(--fs-xs);color:var(--ink-2);line-height:1.6' }, '体温和不适症状。因为这两个最需要当下的感受。'));
-  table.append(last);
-  body.append(table);
+  if (cache.code) {
+    body.append(el('div', { class: 'alert info' }, [
+      el('div', { class: 't' }, '你的共享码'),
+      el('div', {
+        style: 'font-size:var(--fs-xs);font-family:ui-monospace,Menlo,monospace;word-break:break-all;'
+          + 'margin-top:6px;line-height:1.6;background:#fff;padding:8px;border-radius:6px',
+      }, cache.code),
+      el('div', { class: 'tiny', style: 'margin-top:6px;line-height:1.6' },
+        '把这个码发给家人，他们就能看到你的记录。每次更新后重新发一次即可。'),
+    ]));
 
-  // 网址
-  body.append(el('div', { class: 'section-title' }, '把这个网址发给他'));
+    body.append(el('button', {
+      class: 'btn block primary', style: 'margin-bottom:8px',
+      onclick: () => doPushShared(cache, body),
+    }, '更新共享（把最新记录传上去）'));
 
-  const url = 'https://zzzckol.github.io/treatment-tracker/';
-  const urlBox = el('div', {
-    style: 'background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:12px;'
-      + 'font-size:var(--fs-xs);font-family:ui-monospace,Menlo,monospace;word-break:break-all;'
-      + 'line-height:1.6;margin-bottom:10px;color:var(--ink-1)',
-  }, url);
-  body.append(urlBox);
+    body.append(el('button', {
+      class: 'btn block', style: 'margin-bottom:8px',
+      onclick: async () => {
+        try {
+          await navigator.clipboard.writeText(cache.code);
+          toast('共享码已复制');
+        } catch {
+          toast('长按上面的码复制');
+        }
+      },
+    }, '复制共享码'));
+
+    body.append(el('button', {
+      class: 'btn block', style: 'margin-bottom:12px',
+      onclick: () => {
+        localStorage.removeItem('tx-share-code');
+        toast('已清除共享码');
+        openShareSheet();
+      },
+    }, '停用共享'));
+  } else {
+    body.append(el('div', { class: 'alert warn' }, [
+      el('div', { class: 't' }, '还不能用'),
+      el('div', { class: 'tiny', style: 'margin-top:4px;line-height:1.7' },
+        '共享需要先配好 GitHub Token 和仓库（配微信推送时填过的那两个）。'
+        + '去「更多 → 微信提醒推送」填好，再回来点下面的按钮。'),
+    ]));
+
+    body.append(el('button', {
+      class: 'btn block primary', style: 'margin-bottom:12px',
+      onclick: () => {
+        if (!S.profile.ghToken || !S.profile.ghRepo) {
+          closeSheet();
+          openPushSheet();
+          return;
+        }
+        doPushShared(cache, body);
+      },
+    }, '开启共享（生成共享码）'));
+  }
+
+  // ===== 查看别人的数据 =====
+  body.append(el('div', { class: 'section-title' }, '查看家人的记录'));
+
+  const viewInput = el('textarea', {
+    placeholder: '把家人发来的共享码粘到这里',
+    style: 'min-height:70px;font-size:12px;font-family:ui-monospace,Menlo,monospace',
+  });
+  viewInput.value = localStorage.getItem('tx-view-code') || '';
+  body.append(viewInput);
+
+  const viewResult = el('div', {});
+  body.append(viewResult);
 
   body.append(el('button', {
-    class: 'btn block primary', style: 'margin-bottom:10px',
+    class: 'btn block', style: 'margin-top:10px;margin-bottom:12px',
     onclick: async () => {
-      const msg = `治疗跟进，帮你记录身体的感受，点几下就行：\n${url}\n\n打开后用「添加到主屏幕」，之后从桌面图标进。`;
+      const code = viewInput.value.trim();
+      viewResult.replaceChildren();
+      if (!code) { viewResult.append(el('div', { class: 'alert warn' }, [el('div', { class: 'tiny' }, '先粘贴共享码')])); return; }
+      if (!parseShareCode(code)) {
+        viewResult.append(el('div', { class: 'alert bad' }, [el('div', { class: 'tiny' }, '共享码格式不对')]));
+        return;
+      }
+      localStorage.setItem('tx-view-code', code);
+      viewResult.append(el('div', { class: 'alert info' }, [el('div', { class: 'tiny' }, '正在读取…')]));
       try {
-        if (navigator.share) {
-          await navigator.share({ title: '治疗跟进', text: msg, url });
-        } else {
-          await navigator.clipboard.writeText(msg);
-          toast('已复制，去微信粘给他');
-        }
+        const bundle = await pullShared(code, { token: S.profile.ghToken, repo: S.profile.ghRepo });
+        viewResult.replaceChildren();
+        const box = el('div', { class: 'card plain' });
+        box.append(el('div', { class: 'tiny', style: 'font-weight:700;margin-bottom:8px' }, '读到了'));
+        const kv = (k, v) => {
+          const r = el('div', { class: 'kv' });
+          r.append(el('span', { class: 'k' }, k));
+          r.append(el('span', { class: 'v' }, String(v)));
+          return r;
+        };
+        box.append(kv('患者', bundle.profile?.name || '-'));
+        box.append(kv('化验', (bundle.labs?.length || 0) + ' 次'));
+        box.append(kv('日程', (bundle.appointments?.length || 0) + ' 条'));
+        box.append(kv('资料', (bundle.docs?.length || 0) + ' 份'));
+        box.append(kv('症状记录', (bundle.symptoms?.length || 0) + ' 天'));
+        viewResult.append(box);
+
+        viewResult.append(el('button', {
+          class: 'btn block primary', style: 'margin-top:8px',
+          onclick: async () => {
+            if (await confirmAsk('把这些数据合并到你手机上？同一个人的记录会合并，不会重复。')) {
+              const c = await applyBundle(bundle);
+              await reload();
+              closeSheet();
+              render();
+              toast(`已合并：${c.labs} 次化验、${c.symptoms} 天症状`, 3200);
+            }
+          },
+        }, '合并到我的数据'));
+        viewResult.append(el('div', { class: 'tiny muted', style: 'margin-top:6px;line-height:1.6' },
+          '合并后你的 app 里就有他的记录了。也可以只看不合并。'));
       } catch (e) {
-        if (e.name !== 'AbortError') {
-          // 分享失败就复制
-          try {
-            await navigator.clipboard.writeText(msg);
-            toast('已复制，去微信粘给他');
-          } catch { toast('请长按上面的网址复制'); }
-        }
+        viewResult.replaceChildren();
+        viewResult.append(el('div', { class: 'alert bad' }, [
+          el('div', { class: 't' }, '读取失败'),
+          el('div', { class: 'tiny', style: 'margin-top:4px' }, e.message),
+        ]));
       }
     },
-  }, '分享 / 复制邀请文字'));
+  }, '读取他的记录'));
 
-  // 教学步骤
-  body.append(el('div', { class: 'section-title' }, '他第一次打开后要做'));
-  const steps = el('div', { class: 'card plain' });
-  const step = (n, text) => {
-    const s = el('div', { style: 'display:flex;gap:10px;padding:8px 0' });
+  // ===== 说明 =====
+  body.append(el('div', { class: 'section-title' }, '怎么用'));
+
+  const how = el('div', { class: 'card plain' });
+  const step = (n, t) => {
+    const s = el('div', { style: 'display:flex;gap:10px;padding:7px 0' });
     s.append(el('div', {
       style: 'width:22px;height:22px;border-radius:50%;background:var(--brand);color:#fff;'
         + 'font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0',
     }, String(n)));
-    s.append(el('div', { style: 'font-size:var(--fs-xs);color:var(--ink-2);line-height:1.6;flex:1' }, text));
+    s.append(el('div', { style: 'font-size:var(--fs-xs);color:var(--ink-2);line-height:1.6;flex:1' }, t));
     return s;
   };
-  steps.append(step(1, 'Safari 打开网址 → 分享 → 添加到主屏幕'));
-  steps.append(step(2, '从桌面图标打开 → 填一下「患者称呼」，填他自己就行'));
-  steps.append(step(3, '点「记录今天」，选今天哪里不舒服，30 秒搞定'));
-  steps.append(step(4, '家里有人帮他也可以，两个人用一台手机没问题'));
-  body.append(steps);
+  how.append(step(1, '病人手机上：更多 → 分享给家人使用 → 开启共享，得到一串共享码'));
+  how.append(step(2, '把共享码微信发给你'));
+  how.append(step(3, '你手机上：同一个入口，粘进「查看家人的记录」→ 读取'));
+  how.append(step(4, '他记完新的，点一次「更新共享」，你再点「读取」就能看到'));
+  body.append(how);
 
-  // 合并数据
-  body.append(el('div', { class: 'section-title' }, '怎么把两边数据合到一起'));
-  body.append(el('div', { class: 'card plain' }, [
-    el('div', { class: 'tiny', style: 'line-height:1.75;color:var(--ink-2)' },
-      '每周末做一次：他在他的手机上「更多 → 备份全部数据」，把那个文件发给你；'
-      + '你在这边「更多 → 从备份恢复」，选那个文件。同一天的记录会合并，不会重复。'),
-  ]));
-
-  body.append(el('div', { class: 'alert warn', style: 'margin-top:14px' }, [
-    el('div', { class: 't' }, '别指望自动同步'),
-    el('div', { class: 'tiny', style: 'margin-top:3px;line-height:1.7' },
-      '要真正实时同步，需要服务器和账号系统，成本和维护都高很多。'
-      + '对现在的用法，每周手动合一次完全够用。'),
+  body.append(el('div', { class: 'alert info', style: 'margin-top:12px' }, [
+    el('div', { class: 't' }, '关于隐私'),
+    el('div', { class: 'tiny', style: 'margin-top:4px;line-height:1.7' },
+      '数据是加密后存在你自己的 GitHub 仓库里的，别人拿到链接也解不开。'
+      + '共享码本身就是钥匙，别发到群里。'),
   ]));
 
   openSheet({
-    title: '分享给家人',
+    title: '共享数据',
     body,
     footer: [el('button', { class: 'btn', onclick: closeSheet }, '关闭')],
   });
+}
+
+/** 执行上传 */
+async function doPushShared(cache, body) {
+  if (!S.profile.ghToken || !S.profile.ghRepo) {
+    toast('先去「微信提醒推送」配好 Token 和仓库');
+    return;
+  }
+  toast('正在上传…');
+  try {
+    const snapshot = {
+      profile: S.profile,
+      labs: S.labs,
+      appointments: S.appts,
+      docs: S.docs,
+      symptoms: S.syms,
+    };
+    const res = await pushShared(snapshot, {
+      token: S.profile.ghToken,
+      repo: S.profile.ghRepo,
+    }, cache.code || null);
+
+    cache.code = res.code;
+    localStorage.setItem('tx-share-code', res.code);
+    toast('已上传，共享码已保存');
+    closeSheet();
+    openShareSheet();
+  } catch (e) {
+    toast('上传失败：' + e.message, 4000);
+  }
 }
 
 /* ---------- 资料库 ---------- */
