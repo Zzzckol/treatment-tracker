@@ -10,7 +10,7 @@ import {
 } from './utils.js';
 import {
   LAB_PANELS, LAB_INDEX, SYMPTOMS, SYMPTOM_INDEX, SYMPTOM_GROUPS, LEVELS,
-  APPT_TYPES, APPT_TYPE_INDEX, DOC_KINDS, judge, checkRedFlags,
+  APPT_TYPES, APPT_TYPE_INDEX, DOC_KINDS, judge, checkRedFlags, displayValue,
 } from './catalog.js';
 import {
   buildCyclePlan, buildRadioPlan, mergePlan, nextAppointment, nextTest,
@@ -389,7 +389,11 @@ function latestAbnormal() {
     if (!it) continue;
     const flag = judge(code, rec.value);
     if (flag === 'ok') continue;
-    out.push({ code, name: it.name, unit: it.unit, lo: it.lo, hi: it.hi, flag, value: rec.value, date: rec.date });
+    const dv = displayValue(code, rec.value);
+    out.push({
+      code, name: it.name, unit: dv.unit, lo: dv.lo, hi: dv.hi,
+      flag, value: dv.value, raw: rec.value, date: rec.date,
+    });
   }
   out.sort((a, b) => {
     const sa = LAB_INDEX.get(a.code)?.star ? 0 : 1;
@@ -724,14 +728,15 @@ function pageLabs() {
     for (const { it, series } of rows) {
       const last = series[series.length - 1];
       const flag = judge(it.code, last.y);
+      const dv = displayValue(it.code, last.y);
       const row = el('div', { class: 'labrow', style: 'cursor:pointer', onclick: () => openLabDetail(it.code) });
       row.append(el('div', {}, [
         el('div', { class: 'nm' }, it.name),
-        el('div', { class: 'rf' }, `参考 ${fmtNum(it.lo)}–${fmtNum(it.hi)} ${it.unit}`),
+        el('div', { class: 'rf' }, `参考 ${fmtNum(dv.lo)}–${fmtNum(dv.hi)} ${dv.unit}`),
       ]));
       row.append(el('div', { class: 'val ' + (flag || '') }, [
-        document.createTextNode(fmtNum(last.y)),
-        el('span', { class: 'u' }, it.unit),
+        document.createTextNode(fmtNum(dv.value)),
+        el('span', { class: 'u' }, dv.unit),
       ]));
       row.append(el('div', { class: 'arrow' }, trendArrow(series)));
       c.append(row);
