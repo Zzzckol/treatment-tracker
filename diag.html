@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>数据诊断 · 治疗跟进</title>
+<style>
+  body {
+    margin: 0; padding: 16px;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #f2f7f9; color: #0f2430; font-size: 16px; line-height: 1.6;
+  }
+  h1 { font-size: 19px; margin: 0 0 4px; }
+  .sub { font-size: 13px; color: #6b8296; margin-bottom: 16px; }
+  .card { background: #fff; border-radius: 14px; padding: 14px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(15,36,48,.05); }
+  .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e6eef3; }
+  .row:last-child { border-bottom: 0; }
+  .k { color: #6b8296; }
+  .v { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .ok { color: #0fa15c; }
+  .bad { color: #e2564b; }
+  .warn { color: #e08a1e; }
+  .btn {
+    width: 100%; min-height: 46px; border-radius: 12px; border: 1px solid #d3e2ea;
+    background: #fff; font-size: 15px; font-weight: 600; font-family: inherit;
+    color: #0f2430; margin-bottom: 8px; cursor: pointer;
+  }
+  .btn.primary { background: #0aa8a3; border-color: #0aa8a3; color: #fff; }
+  .note { font-size: 13px; color: #6b8296; line-height: 1.7; }
+  pre { background: #f8fbfc; padding: 10px; border-radius: 8px; font-size: 11px; overflow-x: auto; margin: 8px 0 0; }
+</style>
+</head>
+<body>
+<h1>数据诊断</h1>
+<div class="sub">检查本地数据库里到底有什么</div>
+
+<div class="card" id="result">
+  <div class="row"><span class="k">状态</span><span class="v" id="status">检查中…</span></div>
+</div>
+
+<div id="detail"></div>
+
+<div class="card">
+  <button class="btn primary" onclick="location.href='./index.html'">返回应用</button>
+  <button class="btn" onclick="location.reload()">重新检查</button>
+</div>
+
+<div class="card">
+  <div class="note">
+    这个页面只读，不会修改任何数据。<br>
+    如果这里能看到数据但应用里看不到，说明是显示问题不是数据问题。
+  </div>
+</div>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+
+function fmtSize(n) {
+  if (n < 1024) return n + ' B';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+  return (n / 1024 / 1024).toFixed(2) + ' MB';
+}
+
+async function main() {
+  const rows = [];
+  const setStatus = (t, cls) => {
+    const el = $('status');
+    el.textContent = t;
+    el.className = 'v ' + (cls || '');
+  };
+
+  try {
+    // 列出所有数据库
+    let dbs = [];
+    if (indexedDB.databases) {
+      dbs = await indexedDB.databases();
+      rows.push(['已存在的数据库', dbs.map(d => d.name).join(', ') || '(无)']);
+    }
+
+    const hasOurDB = dbs.some(d => d.name === 'tx-tracker');
+    rows.push(['tx-tracker 数据库', hasOurDB ? '存在' : '不存在']);
+
+    if (!hasOurDB) {
+      setStatus('数据库不存在', 'bad');
+      render(rows, '数据库整个不存在。可能被浏览器清掉了，或者从来没在这台设备上导入过。');
+      return;
+    }
+
+    // 打开数据库
+    const db = await new Promise((resolve, reject) => {
+      const req = indexedDB.open('tx-tracker');
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+      req.onblocked = () => reject(new Error('数据库被其他页面占用，请关掉应用的标签页再试'));
+      setTimeout(() => reject(new Error('打开超时')), 5000);
+    });
+
+    rows.push(['数据库版本', db.version]);
+    const stores = Array.from(db.objectStoreNames);
+    rows.push(['数据表', stores.join(', ') || '(空)']);
+
+    // 统计每个表
+    const counts = {};
+    for (const name of stores) {
+      const n = await new Promise((resolve) => {
+        try {
+          const tx = db.transaction(name, 'readonly');
+          const req = tx.objectStore(name).count();
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => resolve(-1);
+        } catch { resolve(-1); }
+      });
+      counts[name] = n;
+    }
+
+    let total = 0;
+    for (const [k, v] of Object.entries(counts)) {
+      if (k === 'settings') continue;
+      total += (v > 0 ? v : 0);
+      rows.push(['  ' + k, v >= 0 ? v + ' 条' : '读取失败']);
+    }
+
+    // 读患者信息
+    let profile = null;
+    if (stores.includes('settings')) {
+      profile = await new Promise((resolve) => {
+        try {
+          const tx = db.transaction('settings', 'readonly');
+          const req = tx.objectStore('settings').get('profile');
+          req.onsuccess = () => resolve(req.result?.v || null);
+          req.onerror = () => resolve(null);
+        } catch { resolve(null); }
+      });
+    }
+
+    if (profile) {
+      rows.push(['患者姓名', profile.name || '(空)']);
+      rows.push(['诊断', (profile.diagnosis || '(空)').slice(0, 30)]);
+      rows.push(['医院', profile.hospital || '(空)']);
+    } else {
+      rows.push(['患者信息', '没有']);
+    }
+
+    // 估算占用
+    if (navigator.storage?.estimate) {
+      const est = await navigator.storage.estimate();
+      rows.push(['浏览器存储占用', fmtSize(est.usage || 0)]);
+      rows.push(['可用配额', fmtSize(est.quota || 0)]);
+    }
+
+    // 判断结果
+    const dataTables = ['labs', 'appointments', 'docs', 'symptoms', 'notes'];
+    const dataTotal = dataTables.reduce((s, k) => s + (counts[k] > 0 ? counts[k] : 0), 0);
+
+    if (dataTotal > 0) {
+      setStatus('数据还在（共 ' + dataTotal + ' 条）', 'ok');
+      render(rows, null);
+    } else if (profile && profile.name) {
+      setStatus('只有患者信息，业务数据是空的', 'warn');
+      render(rows, '患者信息还在，但化验、日程、资料都是 0 条。可能是导入没成功。');
+    } else {
+      setStatus('数据库是空的', 'bad');
+      render(rows, '数据库存在但没有任何内容。需要重新导入数据。');
+    }
+
+    // 抽样看一条数据
+    if (counts.labs > 0) {
+      const sample = await new Promise((resolve) => {
+        const tx = db.transaction('labs', 'readonly');
+        const req = tx.objectStore('labs').getAll();
+        req.onsuccess = () => resolve(req.result?.[0]);
+        req.onerror = () => resolve(null);
+      });
+      if (sample) {
+        $('detail').appendChild(makeCard('化验数据样本', JSON.stringify(sample, null, 2)));
+      }
+    }
+
+    db.close();
+  } catch (e) {
+    setStatus('检查出错', 'bad');
+    rows.push(['错误', e.message]);
+    render(rows, '可能的原因：浏览器阻止了 IndexedDB，或数据库被占用。');
+  }
+}
+
+function render(rows, hint) {
+  const box = $('result');
+  box.replaceChildren();
+  box.appendChild(Object.assign(document.createElement('div'), {
+    className: 'row',
+    innerHTML: '<span class="k">状态</span><span class="v ' + $('status').className.replace('v', '').trim() + '">' + $('status').textContent + '</span>',
+  }));
+  for (const [k, v] of rows) {
+    const d = document.createElement('div');
+    d.className = 'row';
+    d.innerHTML = '<span class="k"></span><span class="v"></span>';
+    d.children[0].textContent = k;
+    d.children[1].textContent = v;
+    box.appendChild(d);
+  }
+  if (hint) {
+    const c = document.createElement('div');
+    c.className = 'card';
+    c.innerHTML = '<div class="note"></div>';
+    c.firstChild.textContent = hint;
+    $('detail').appendChild(c);
+  }
+}
+
+function makeCard(title, body) {
+  const c = document.createElement('div');
+  c.className = 'card';
+  const h = document.createElement('div');
+  h.className = 'note';
+  h.style.fontWeight = '700';
+  h.style.marginBottom = '6px';
+  h.textContent = title;
+  const pre = document.createElement('pre');
+  pre.textContent = body;
+  c.appendChild(h);
+  c.appendChild(pre);
+  return c;
+}
+
+main();
+</script>
+</body>
+</html>
