@@ -76,6 +76,9 @@ async function boot() {
   // 极简日程面板需要回到 app 的刷新/渲染
   initQuickAppt({ reload, render });
 
+  // 在微信里打开时警告：数据会存在微信里，和桌面图标不互通
+  checkInAppBrowser();
+
   // 链接导入：地址里带 #import= 时自动拉取并导入
   handleLinkImport();
 
@@ -1610,7 +1613,8 @@ function pageMore() {
     {
       title: '页面与更新',
       items: [
-        { icon: '🔗', name: '分享给家人使用', desc: '让对方自己记录身体感受', fn: openShareSheet, tone: 'blue' },
+        { icon: '📲', name: '装到手机桌面', desc: installHintText(), fn: () => openAndroidInstallSheet(), tone: 'blue' },
+        { icon: '🔗', name: '共享给家人使用', desc: '让对方自己记录身体感受', fn: openShareSheet },
         { icon: '↻', name: '刷新数据', desc: '重新读取本地数据并重画界面', fn: () => refreshData() },
         { icon: '⬇', name: '检查更新', desc: '拉取最新版本（改了代码后用）', fn: showUpdateSheet },
       ],
@@ -1823,6 +1827,149 @@ const PROFILE_LABEL = {
   hospital: '医院', dept: '科室', doctor: '医生',
   chemoCycleDays: '化疗周期', immunoCycleDays: '免疫间隔', radioTotal: '放疗次数',
 };
+
+/** 安装入口的提示文字，区分平台和当前状态 */
+function installHintText() {
+  const env = detectEnv();
+  if (env.isStandalone) return '已安装，运行在独立窗口';
+  if (env.isWeChat) return '现在在微信里，需要换浏览器';
+  if (env.isIOS) return 'iPhone：用 Safari 分享 → 添加到主屏幕';
+  if (env.isAndroid) return '安卓：可安装为 App，更新更快';
+  return '点开看安装方法';
+}
+
+/* ---------- 环境检测与安装引导 ---------- */
+
+/**
+ * 判断当前运行环境
+ * 这个很重要，因为 iOS 和安卓、微信内和浏览器内，
+ * 数据存储是互相隔离的，用错方式会导致"数据不见"
+ */
+function detectEnv() {
+  const ua = navigator.userAgent || '';
+  const isAndroid = /Android/i.test(ua);
+  const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isWeChat = /MicroMessenger/i.test(ua);
+  const isQQ = /\sQQ/i.test(ua) || /QQBrowser/i.test(ua);
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone === true;
+  const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
+  const isChrome = /Chrome/i.test(ua) && !/Edg/i.test(ua);
+  return { isAndroid, isIOS, isWeChat, isQQ, isStandalone, isSafari, isChrome };
+}
+
+/** 在微信/QQ 里打开时的警告 —— 数据会存到微信里，和主屏幕不互通 */
+function checkInAppBrowser() {
+  const env = detectEnv();
+  if (!(env.isWeChat || env.isQQ) || env.isStandalone) return;
+  if (localStorage.getItem('tx-wx-warn-dismissed') === '1') return;
+
+  const bar = el('div', {
+    style: 'position:fixed;left:0;right:0;top:0;z-index:70;'
+      + 'background:#8d5a10;color:#fff;padding:calc(10px + env(safe-area-inset-top,0px)) 14px 10px;'
+      + 'font-size:13px;line-height:1.55;box-shadow:0 2px 10px rgba(0,0,0,.2)',
+  });
+  bar.append(el('div', { style: 'font-weight:700;margin-bottom:3px' }, '这里记的数据会存在微信里'));
+  bar.append(el('div', { style: 'opacity:.92' },
+    '关掉微信就找不到了。要长期用，请复制网址，用手机浏览器打开后再添加到桌面。'));
+
+  const close = el('button', {
+    style: 'position:absolute;right:10px;top:calc(8px + env(safe-area-inset-top,0px));'
+      + 'border:0;background:rgba(255,255,255,.2);color:#fff;border-radius:6px;'
+      + 'padding:4px 10px;font-size:12px;font-family:inherit',
+    onclick: () => {
+      bar.remove();
+      localStorage.setItem('tx-wx-warn-dismissed', '1');
+    },
+  }, '知道了');
+  bar.append(close);
+
+  document.body.append(bar);
+}
+
+/** 安卓专用的安装引导（安卓可以真正"安装"，比 iOS 的书签更好用） */
+function openAndroidInstallSheet() {
+  const env = detectEnv();
+  const body = el('div', {});
+
+  if (env.isWeChat || env.isQQ) {
+    body.append(el('div', { class: 'alert bad' }, [
+      el('div', { class: 't' }, '现在在微信里，装不了'),
+      el('div', { class: 'tiny', style: 'margin-top:4px;line-height:1.7' },
+        '微信内置浏览器不支持安装。请先复制下面的网址，打开手机自带的浏览器（Chrome 或手机厂商的浏览器），粘贴打开。'),
+    ]));
+    body.append(el('div', {
+      style: 'background:var(--surface-2);border:1px solid var(--line);border-radius:10px;'
+        + 'padding:12px;font-size:12px;font-family:ui-monospace,Menlo,monospace;word-break:break-all;'
+        + 'line-height:1.6;margin-bottom:12px;user-select:all',
+    }, 'https://zzzckol.github.io/treatment-tracker/'));
+    body.append(el('button', {
+      class: 'btn block primary', style: 'margin-bottom:10px',
+      onclick: async () => {
+        try {
+          await navigator.clipboard.writeText('https://zzzckol.github.io/treatment-tracker/');
+          toast('已复制，去浏览器粘贴');
+        } catch { toast('长按上面的网址复制'); }
+      },
+    }, '复制网址'));
+    openSheet({ title: '安装到安卓桌面', body, footer: [el('button', { class: 'btn', onclick: closeSheet }, '关闭')] });
+    return;
+  }
+
+  if (env.isStandalone) {
+    body.append(el('div', { class: 'alert info' }, [
+      el('div', { class: 't' }, '已经是安装版了'),
+      el('div', { class: 'tiny', style: 'margin-top:4px' }, '你现在从桌面图标打开的，就是安装好的版本。'),
+    ]));
+    openSheet({ title: '安装状态', body, footer: [el('button', { class: 'btn', onclick: closeSheet }, '关闭')] });
+    return;
+  }
+
+  body.append(el('div', { class: 'alert info' }, [
+    el('div', { class: 't' }, '安卓可以真正装成 App'),
+    el('div', { class: 'tiny', style: 'margin-top:4px;line-height:1.7' },
+      '比 iPhone 的书签更好用：有自己的窗口、能离线打开、更新也更快。'),
+  ]));
+
+  body.append(el('div', { class: 'section-title' }, '两种方式，看你的浏览器'));
+  const steps = el('div', { class: 'card plain' });
+
+  const stepBlock = (title, lines) => {
+    const b = el('div', { style: 'padding:10px 0;border-bottom:1px solid var(--line)' });
+    b.append(el('div', { style: 'font-size:var(--fs-sm);font-weight:700;margin-bottom:5px' }, title));
+    for (const l of lines) {
+      b.append(el('div', { style: 'font-size:var(--fs-xs);color:var(--ink-2);line-height:1.7' }, l));
+    }
+    return b;
+  };
+
+  steps.append(stepBlock(' Chrome / Edge 浏览器', [
+    '1. 打开右上角三个点菜单',
+    '2. 找「安装应用」或「添加到主屏幕」',
+    '3. 点「安装」',
+  ]));
+  const last = stepBlock('国产浏览器（小米/华为/OPPO 自带）', [
+    '1. 点底部或右上角的菜单',
+    '2. 找「添加到桌面」或「添加到主屏幕」',
+    '3. 有些会问「创建快捷方式」，选「确定」',
+  ]);
+  last.style.borderBottom = '0';
+  steps.append(last);
+  body.append(steps);
+
+  body.append(el('div', { class: 'alert warn', style: 'margin-top:12px' }, [
+    el('div', { class: 't' }, '装之前先确认一件事'),
+    el('div', { class: 'tiny', style: 'margin-top:4px;line-height:1.7' },
+      '如果你已经在微信里记过数据，那些数据在微信里，装成 App 后看不到。'
+      + '装好后需要重新开始记录，或者从微信里备份再导入。'),
+  ]));
+
+  openSheet({
+    title: '装到安卓桌面',
+    body,
+    footer: [el('button', { class: 'btn', onclick: closeSheet }, '关闭')],
+  });
+}
 
 /* ---------- 更新与刷新 ---------- */
 
