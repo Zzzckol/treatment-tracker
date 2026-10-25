@@ -252,20 +252,50 @@ function icalEscape(s) {
   return String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
 }
 
-/** 未来 N 天内需要推送的提醒项（供云端定时任务使用） */
-export function buildReminderPayload(appts, profile, daysAhead = 14) {
+/**
+ * 需要推送的提醒项（供云端定时任务使用）
+ *
+ * 踩过的坑：原来只取「未来 14 天」，结果下次化疗在 18 天后时
+ * 整个 items 是空的，一条提醒都发不出来。
+ * 现在改成：窗口内全取，另加「窗口外最近一条」作为预告。
+ */
+export function buildReminderPayload(appts, profile, daysAhead = 30) {
   const from = today();
   const until = addDays(from, daysAhead);
-  const items = appts
-    .filter((a) => !a.done && a.date >= from && a.date <= until)
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .map((a) => ({
-      date: a.date,
-      time: a.time || '',
-      type: a.type,
-      title: a.title,
-      place: a.place || '',
-      daysLeft: daysBetween(from, a.date),
-    }));
-  return { generatedAt: new Date().toISOString(), patient: profile.name || '', items };
+
+  const upcoming = appts
+    .filter((a) => !a.done && a.date >= from)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const inWindow = upcoming.filter((a) => a.date <= until);
+  const beyond = upcoming.filter((a) => a.date > until);
+
+  const items = inWindow.map((a) => ({
+    date: a.date,
+    time: a.time || '',
+    type: a.type,
+    title: a.title,
+    place: a.place || '',
+    daysLeft: daysBetween(from, a.date),
+  }));
+
+  // 窗口外最近一条，单独带上，让云端能在「近期无事」时也给出预告
+  const nextBeyond = beyond[0]
+    ? {
+      date: beyond[0].date,
+      time: beyond[0].time || '',
+      type: beyond[0].type,
+      title: beyond[0].title,
+      place: beyond[0].place || '',
+      daysLeft: daysBetween(from, beyond[0].date),
+    }
+    : null;
+
+  return {
+    generatedAt: new Date().toISOString(),
+    patient: profile.name || '',
+    windowDays: daysAhead,
+    items,
+    nextBeyond,
+  };
 }
